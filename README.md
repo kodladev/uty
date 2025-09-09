@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/kodla-dev/uty/refs/heads/main/.github/assets/logo-dark.svg">
-    <img alt="uty logo" src="https://raw.githubusercontent.com/kodla-dev/uty/refs/heads/main/.github/assets/logo.svg" width="80"/>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/kodladev/uty/refs/heads/main/.github/assets/logo-dark.svg">
+    <img alt="uty logo" src="https://raw.githubusercontent.com/kodladev/uty/refs/heads/main/.github/assets/logo.svg" width="80"/>
   </picture>
 </div>
 
@@ -13,7 +13,7 @@
 
 <div align="center">
 
-[![test](https://github.com/kodla-dev/uty/actions/workflows/test.yaml/badge.svg?branch=main)][TEST]
+[![test](https://github.com/kodladev/uty/actions/workflows/test.yaml/badge.svg?branch=main)][TEST]
 &nbsp;[![npm](https://img.shields.io/npm/v/uty.svg)][PACKAGE]
 &nbsp;[![shaking](https://img.shields.io/badge/tree%20shakeable-blue?color=gray&logo=gumtree&logoColor=72ef36)][SIZE]
 
@@ -39,7 +39,7 @@ isArrayLike('fruits'); //=> true
 isEqual([1, 2, 3], [1, 2, 3, 4]); //=> false
 ```
 
-[`more 'is' examples`](https://github.com/kodla-dev/uty/blob/main/docs/libraries/type-and-value-checks.md)
+[`more 'is' examples`](https://github.com/kodladev/uty/blob/main/docs/libraries/type-and-value-checks.md)
 
 ### 🔹 Collection Interactions
 
@@ -56,7 +56,7 @@ pluck('name', 'detail.date', [
 //=> {1879: 'Albert', 1643: 'Isaac'}
 ```
 
-[`more 'collect' examples`](https://github.com/kodla-dev/uty/blob/main/docs/libraries/collection-interactions.md)
+[`more 'collect' examples`](https://github.com/kodladev/uty/blob/main/docs/libraries/collection-interactions.md)
 
 ### 🔹 Mathematical Operations
 
@@ -72,7 +72,7 @@ avg('pages', [
 //=> 636
 ```
 
-[`more 'math' examples`](https://github.com/kodla-dev/uty/blob/main/docs/libraries/mathematical-operations.md)
+[`more 'math' examples`](https://github.com/kodladev/uty/blob/main/docs/libraries/mathematical-operations.md)
 
 ### 🔹 String Tools
 
@@ -96,7 +96,7 @@ toArray({ first: 'Lionel', middle: 'Andrés', last: 'Messi' });
 //=> ['Lionel', 'Andrés', 'Messi']
 ```
 
-[`more 'to' examples`](https://github.com/kodla-dev/uty/blob/main/docs/libraries/data-transformation.md)
+[`more 'to' examples`](https://github.com/kodladev/uty/blob/main/docs/libraries/data-transformation.md)
 
 ### 🔹 Helpers
 
@@ -115,7 +115,7 @@ await total(Promise.resolve([6, 7, 8, 9, 10]));
 //=> 54
 ```
 
-[`more helpers`](https://github.com/kodla-dev/uty/tree/main/docs/helpers)
+[`more helpers`](https://github.com/kodladev/uty/tree/main/docs/helpers)
 
 ### 🔹 Event Listeners
 
@@ -134,7 +134,7 @@ bus.emit('tick', 1);
 //=> 1
 ```
 
-[`more 'event' examples`](https://github.com/kodla-dev/uty/blob/main/docs/libraries/event-listeners.md)
+[`more 'event' examples`](https://github.com/kodladev/uty/blob/main/docs/libraries/event-listeners.md)
 
 ### 🔹 Define Hub
 
@@ -179,9 +179,9 @@ All notable changes to this project will be documented in the [changelog][CHANGE
 
 </details>
 
-[TEST]: https://github.com/kodla-dev/uty/actions/workflows/test.yaml
+[TEST]: https://github.com/kodladev/uty/actions/workflows/test.yaml
 [PACKAGE]: https://www.npmjs.com/package/uty
 [SIZE]: https://bundlephobia.com/package/uty
-[LICENSE]: https://github.com/kodla-dev/uty/blob/main/LICENSE
-[CHANGELOG]: https://github.com/kodla-dev/uty/blob/main/CHANGELOG.md
-[DOCUMENTATION]: https://github.com/kodla-dev/uty/tree/main/docs
+[LICENSE]: https://github.com/kodladev/uty/blob/main/LICENSE
+[CHANGELOG]: https://github.com/kodladev/uty/blob/main/CHANGELOG.md
+[DOCUMENTATION]: https://github.com/kodladev/uty/tree/main/docs
