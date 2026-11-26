@@ -1,6 +1,6 @@
 {
   "name": "uty",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "JS utils library",
   "keywords": [
     "js",
@@ -83,6 +83,7 @@
     "build": "node build",
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
+    "prepublishOnly": "npm run build",
     "test": "vitest"
   },
   "devDependencies": {
