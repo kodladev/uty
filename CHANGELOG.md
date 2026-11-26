@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- A comparison with `remeda`, `radash`, `lodash` and `ramda` in the `bench` folder: what the same pipe handles, speed and size, with the scripts that produce each table
+- `npm run bench:compare` measures the current source against an earlier commit
+
 ### Changed
 
 - The `benchmark` folder is now `bench`, like the `npm run bench` script that runs it

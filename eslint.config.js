@@ -14,6 +14,6 @@ export default [
     },
   },
   {
-    ignores: ['**/test', '**/type', '**/*.d.ts'],
+    ignores: ['**/test', '**/type', '**/*.d.ts', 'bench/.compare'],
   },
 ];

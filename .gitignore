@@ -2,3 +2,4 @@
 node_modules
 type
 *.d.ts
+bench/.compare

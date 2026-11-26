@@ -189,7 +189,7 @@ Visit our [documentation][DOCUMENTATION] for detailed guides and references.
 
 ## Benchmark
 
-Every function is measured next to the plain JavaScript that does the same job:
+What the same pipe handles, its speed and its size, measured next to other libraries. See the [results][BENCHMARK].
 
 ```shell
 npm run bench
@@ -227,6 +227,7 @@ All notable changes to this project will be documented in the [changelog][CHANGE
 [TEST]: https://github.com/kodladev/uty/actions/workflows/test.yaml
 [PACKAGE]: https://www.npmjs.com/package/uty
 [SIZE]: https://bundlephobia.com/package/uty
+[BENCHMARK]: https://github.com/kodladev/uty/tree/main/bench
 [LICENSE]: https://github.com/kodladev/uty/blob/main/LICENSE
 [CHANGELOG]: https://github.com/kodladev/uty/blob/main/CHANGELOG.md
 [DOCUMENTATION]: https://github.com/kodladev/uty/tree/main/docs
