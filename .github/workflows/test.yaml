@@ -2,26 +2,36 @@ name: Test
 on:
   push:
     branches: main
-    paths: 'src/**'
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'package.json'
+      - '.github/workflows/test.yaml'
   pull_request:
     branches: main
-    paths: 'src/**'
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'package.json'
+      - '.github/workflows/test.yaml'
   workflow_dispatch:
 
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         env:
-          - { node: 21, os: 'ubuntu-22.04' }
-          - { node: 20, os: 'ubuntu-22.04' }
-          - { node: 18, os: 'ubuntu-22.04' }
-          - { node: 18, os: 'windows-2022' }
-          - { node: 18, os: 'macos-13' }
+          - { node: 24, os: 'ubuntu-latest' }
+          - { node: 22, os: 'ubuntu-latest' }
+          - { node: 20, os: 'ubuntu-latest' }
+          - { node: 18, os: 'ubuntu-latest' }
+          - { node: 24, os: 'windows-latest' }
+          - { node: 24, os: 'macos-latest' }
     runs-on: ${{ matrix.env.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.env.node }}
       - run: npm install
