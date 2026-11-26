@@ -1,6 +1,6 @@
 {
   "name": "uty",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "JS helpers where the same pipe works on arrays, objects and Promises",
   "keywords": [
     "js",
