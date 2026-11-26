@@ -17,12 +17,26 @@ import { isArray, isFunction, isPromise } from './is.js';
  * @returns {*} - Returns the result of piping the collection through the functions.
  */
 export function pipe(collect, ...fns) {
-  if (isFunction(collect)) return c => pipe(c, collect, ...fns);
+  if (!isFunction(collect)) return run(collect, fns);
+  // Without data the steps are kept once, and every call walks the same list
+  const steps = [collect, ...fns];
+  return c => (isFunction(c) ? pipe(c, ...steps) : run(c, steps));
+}
+
+/**
+ * Passes a value through the steps of a pipe, one after the other.
+ *
+ * @private
+ * @param {*} collect - The value to pass through.
+ * @param {Array<Function|Array>} fns - The steps.
+ * @returns {*} - The result of the last step.
+ */
+function run(collect, fns) {
   for (let i = 0; i < fns.length; i++) {
     const fn = fns[i];
-    if (isArray(fn)) collect = pipe(collect, ...fn);
-    else if (!isFunction(fn)) throw new TypeError('uty: pipe expects functions as its steps');
-    else collect = isPromise(collect) ? collect.then(fn) : fn(collect);
+    if (isFunction(fn)) collect = isPromise(collect) ? collect.then(fn) : fn(collect);
+    else if (isArray(fn)) collect = pipe(collect, ...fn);
+    else throw new TypeError('uty: pipe expects functions as its steps');
   }
   return collect;
 }

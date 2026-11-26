@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - The `benchmark` folder is now `bench`, like the `npm run bench` script that runs it
+- `map`, `filter`, `reduce`, `every`, `some`, `pluck`, `value`, `unique` and `diff` visit the empty slots of a sparse array (`[1, , 3]`) as `undefined` instead of skipping them
+
+### Performance
+
+- `pipe` costs about half as much per step: a pipe built without data keeps its list of steps, and `isPromise` checks a value with one lookup
+- `diff` on arrays and `some` with a key and a value are about twice as fast
+- `map`, `filter`, `reduce`, `every`, `some`, `pluck`, `value` and `unique` walk arrays with their own loop instead of the built-in method: up to three times faster where a function is always called with the same callback, and from equal to a quarter faster otherwise
 
 ## [0.3.0] - 2026-11-26
 

@@ -126,7 +126,11 @@ export function diff(values, type, collect) {
 
   if (isArray(values) && isArray(collect)) {
     const found = new Set(values);
-    return collect.filter(item => !found.has(item));
+    const result = [];
+    for (let index = 0; index < collect.length; index++) {
+      if (!found.has(collect[index])) result.push(collect[index]);
+    }
+    return result;
   }
 
   if (isObject(values) && isObject(collect)) {
@@ -217,7 +221,13 @@ export function entries(collect) {
  */
 export function every(fn, collect) {
   if (arguments.length < 2) return collect => every(fn, collect);
-  if (isCollect(collect)) return values(collect).every(fn);
+  if (isCollect(collect)) {
+    const items = values(collect);
+    for (let index = 0; index < items.length; index++) {
+      if (!fn(items[index], index, items)) return false;
+    }
+    return true;
+  }
   if (isPromise(collect)) return collect.then(c => every(fn, c));
   return fail('every', collect);
 }
@@ -234,7 +244,18 @@ export function filter(fn, collect) {
   if (!count || (count === 1 && isFunction(fn))) return collect => filter(fn, collect);
   if (count === 1) return filter(false, fn);
 
-  if (isArray(collect)) return collect.filter(fn || (item => filtered(item)));
+  if (isArray(collect)) {
+    const test = fn || filtered;
+    // A long result is given its room up front and cut to size at the end; a short one just grows
+    const result = collect.length > 64 ? new Array(collect.length) : [];
+    let count = 0;
+    for (let index = 0; index < collect.length; index++) {
+      const item = collect[index];
+      if (test(item, index, collect)) result[count++] = item;
+    }
+    if (count < result.length) result.length = count;
+    return result;
+  }
 
   if (isObject(collect)) {
     const result = {};
@@ -499,7 +520,12 @@ export function loop(fn, length) {
  */
 export function map(fn, collect) {
   if (arguments.length < 2) return collect => map(fn, collect);
-  if (isArray(collect)) return collect.map(fn);
+  if (isArray(collect)) {
+    const count = collect.length;
+    const result = new Array(count);
+    for (let index = 0; index < count; index++) result[index] = fn(collect[index], index, collect);
+    return result;
+  }
   if (isAsyncIterable(collect)) {
     const iterator = collect[Symbol.asyncIterator]();
     return {
@@ -611,7 +637,11 @@ export function pluck(key, seed, collect) {
   const items = isArray(collect) ? collect : [collect];
   const read = reader(key);
 
-  if (isUndefined(seed)) return items.map(item => read(item));
+  if (isUndefined(seed)) {
+    const result = new Array(items.length);
+    for (let index = 0; index < items.length; index++) result[index] = read(items[index]);
+    return result;
+  }
 
   // A seed key turns the result into an object keyed by that value
   const collection = {};
@@ -805,8 +835,10 @@ export function reduce(fn, seed, collect) {
   const seeded = count > 2;
 
   if (isArray(collect)) {
-    if (seeded) return collect.reduce(fn, seed);
-    return collect.length ? collect.reduce(fn) : void 0;
+    let index = 0;
+    let result = seeded ? seed : collect[index++];
+    for (; index < collect.length; index++) result = fn(result, collect[index], index, collect);
+    return result;
   }
 
   if (isObject(collect)) {
@@ -930,13 +962,22 @@ export function some(key, value, collect) {
 
   if (!isUndefined(value)) {
     // Check if the key-value pair exists in an array of objects, or in an object
-    if (list) return collect.some(item => !isNil(item) && item[key] === value);
-    return collect[key] === value;
+    if (!list) return collect[key] === value;
+    for (let index = 0; index < collect.length; index++) {
+      const item = collect[index];
+      if (!isNil(item) && item[key] === value) return true;
+    }
+    return false;
   }
 
   if (isFunction(key)) {
     // Check if any item in the collection satisfies the condition provided by the function
-    if (list) return collect.some((item, index) => key(item, index));
+    if (list) {
+      for (let index = 0; index < collect.length; index++) {
+        if (key(collect[index], index)) return true;
+      }
+      return false;
+    }
     for (const name of Object.keys(collect)) {
       if (key(collect[name], name)) return true;
     }
@@ -1092,12 +1133,14 @@ export function unique(key, collect) {
 
   const used = new Set();
   const read = isFunction(key) ? key : item => item[key];
-  return collect.filter(item => {
-    const id = read(item);
-    if (used.has(id)) return false;
+  const result = [];
+  for (let index = 0; index < collect.length; index++) {
+    const id = read(collect[index]);
+    if (used.has(id)) continue;
     used.add(id);
-    return true;
-  });
+    result.push(collect[index]);
+  }
+  return result;
 }
 
 /**
@@ -1126,7 +1169,11 @@ export function value(key, collect) {
   if (isPromise(collect)) return collect.then(c => value(key, c));
   if (isNil(collect)) return fail('value', collect);
 
-  if (isArray(collect)) return collect.map(item => value(key, item));
+  if (isArray(collect)) {
+    const result = new Array(collect.length);
+    for (let index = 0; index < collect.length; index++) result[index] = value(key, collect[index]);
+    return result;
+  }
 
   if (!isString(key) || key.indexOf('.') === -1) return collect[key];
 

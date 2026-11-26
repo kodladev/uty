@@ -496,8 +496,7 @@ export function isPrimitive(value) {
  * Returns true if the value is a promise, false otherwise.
  */
 export function isPromise(value) {
-  if (value instanceof Promise) return true;
-  return !isNil(value) && isFunction(value.then);
+  return value != null && isFunction(value.then);
 }
 
 /**
