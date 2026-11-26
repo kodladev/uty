@@ -5,11 +5,27 @@
   --------------------------------------------------------------------------------------------------
 */
 
-import { dot, each, includes, join, map, merge, some } from './collect.js';
+import { dot, includes, merge, some } from './collect.js';
 import { RAW_EMPTY, RAW_WHITESPACE } from './define.js';
-import { pipe } from './index.js';
-import { isArray, isString, isUndefined } from './is.js';
+import { fail } from './fail.js';
+import { isArray, isNil, isString, isUndefined } from './is.js';
 import { length } from './math.js';
+
+/**
+ * Decides what a single argument is for the functions that take an optional locale first:
+ * a string is the text itself, a missing value is a mistake, anything else is a locale.
+ *
+ * @private
+ * @param {string} name - The name of the calling function.
+ * @param {Function} fn - The calling function.
+ * @param {*} locale - The only argument that was passed.
+ * @returns {string|string[]|Function} The result, or a function awaiting the string.
+ */
+function single(name, fn, locale) {
+  if (isString(locale)) return fn(void 0, locale);
+  if (isNil(locale)) return fail(name, locale);
+  return collect => fn(locale, collect);
+}
 
 /**
  * Converts the given string to lowercase, optionally using a specified locale.
@@ -19,10 +35,10 @@ import { length } from './math.js';
  * @returns {string|function} The lowercase string or a function awaiting the string.
  */
 export function lower(locale, collect) {
-  if (isUndefined(collect)) {
-    if (isString(locale)) return lower(void 0, locale);
-    return collect => lower(locale, collect);
-  }
+  const count = arguments.length;
+  if (!count) return collect => lower(void 0, collect);
+  if (count === 1) return single('lower', lower, locale);
+  if (!isString(collect)) return fail('lower', collect);
 
   if (!isUndefined(locale)) {
     return collect.toLocaleLowerCase(locale);
@@ -38,7 +54,8 @@ export function lower(locale, collect) {
  * @returns {string|function} The string without punctuation, or a function awaiting the string.
  */
 export function removePunct(collect) {
-  if (isUndefined(collect)) return collect => removePunct(collect);
+  if (!arguments.length) return collect => removePunct(collect);
+  if (!isString(collect)) return fail('removePunct', collect);
 
   // Regular expression to match punctuation characters
   const punctRgx = /[\u2000-\u206F\u2E00-\u2E7F\\'!"#$%&()*+,\-./:;<=>?@[\]^_`{|}~]/g;
@@ -56,12 +73,15 @@ export function removePunct(collect) {
  * @returns {string|function} The extracted substring or a function awaiting the collection.
  */
 export function sub(start = 1, end, collect) {
-  if (isUndefined(collect)) {
+  const count = arguments.length;
+  if (count < 3) {
     if (isString(end)) return sub(start, void 0, end);
     if (isString(start)) return sub(1, void 0, start);
-    if (isUndefined(end)) return collect => sub(start, void 0, collect);
+    // The last of several arguments is the text; a missing one is a mistake
+    if (count && isNil(arguments[count - 1])) return fail('sub', arguments[count - 1]);
     return collect => sub(start, end, collect);
   }
+  if (!isString(collect)) return fail('sub', collect);
 
   if (end) return collect.substring(start, end);
   return collect.substring(start);
@@ -76,15 +96,36 @@ export function sub(start = 1, end, collect) {
  * @returns {string|Function} - The string with placeholders replaced by corresponding values.
  */
 export function supplant(str, holders, collect) {
-  if (isUndefined(collect)) {
-    if (!isString(str)) return collect => supplant(collect, holders, str);
-    if (isUndefined(holders)) return collect => supplant(str, void 0, collect);
+  const count = arguments.length;
+  if (count < 3) {
+    if (!isString(str)) {
+      if (isNil(str)) return fail('supplant', str);
+      return collect => supplant(collect, holders, str);
+    }
+    if (count === 1) return collect => supplant(str, void 0, collect);
     if (isArray(holders)) return collect => supplant(str, holders, collect);
     return supplant(str, void 0, holders);
   }
+  if (isNil(collect)) return fail('supplant', collect);
 
-  const rgx = holders ? new RegExp(`\\${holders[0]}(.*?)\\${holders[1]}`, 'g') : /{(.*?)}/g;
-  return str.replace(rgx, (_, key) => dot(key, collect) || '');
+  const rgx = holders
+    ? new RegExp(`${escape(holders[0])}(.*?)${escape(holders[1])}`, 'g')
+    : /{(.*?)}/g;
+  return str.replace(rgx, (_, key) => {
+    const value = dot(key, void 0, collect);
+    return isNil(value) ? RAW_EMPTY : value;
+  });
+}
+
+/**
+ * Escapes the characters that have a meaning in a regular expression.
+ *
+ * @private
+ * @param {string} text - The text to match literally.
+ * @returns {string} The escaped text.
+ */
+function escape(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -95,12 +136,12 @@ export function supplant(str, holders, collect) {
  * @returns {string|function} The string with the first character in uppercase, or a function awaiting the string.
  */
 export function ucfirst(locale, collect) {
-  if (isUndefined(collect)) {
-    if (isString(locale)) return ucfirst(void 0, locale);
-    return collect => ucfirst(locale, collect);
-  }
+  const count = arguments.length;
+  if (!count) return collect => ucfirst(void 0, collect);
+  if (count === 1) return single('ucfirst', ucfirst, locale);
+  if (!isString(collect)) return fail('ucfirst', collect);
 
-  return upper(locale, sub(0, 1, collect)) + sub(1, collect);
+  return upper(locale, collect.substring(0, 1)) + collect.substring(1);
 }
 
 /**
@@ -111,18 +152,14 @@ export function ucfirst(locale, collect) {
  * @returns {string|function} The string with each word's first character in uppercase, or a function awaiting the string.
  */
 export function ucwords(locale, collect) {
-  if (isUndefined(collect)) {
-    if (isString(locale)) return ucwords(void 0, locale);
-    return collect => ucwords(locale, collect);
-  }
+  const count = arguments.length;
+  if (!count) return collect => ucwords(void 0, collect);
+  if (count === 1) return single('ucwords', ucwords, locale);
+  if (!isString(collect)) return fail('ucwords', collect);
 
-  return pipe(
-    collect,
-    lower(locale),
-    words,
-    map(letter => ucfirst(locale, letter)),
-    join(RAW_WHITESPACE)
-  );
+  return words(0, lower(locale, collect))
+    .map(word => ucfirst(locale, word))
+    .join(RAW_WHITESPACE);
 }
 
 /**
@@ -133,10 +170,10 @@ export function ucwords(locale, collect) {
  * @returns {string|function} The uppercase string or a function awaiting the string.
  */
 export function upper(locale, collect) {
-  if (isUndefined(collect)) {
-    if (isString(locale)) return upper(void 0, locale);
-    return collect => upper(locale, collect);
-  }
+  const count = arguments.length;
+  if (!count) return collect => upper(void 0, collect);
+  if (count === 1) return single('upper', upper, locale);
+  if (!isString(collect)) return fail('upper', collect);
 
   if (!isUndefined(locale)) {
     return collect.toLocaleUpperCase(locale);
@@ -157,7 +194,7 @@ export function upper(locale, collect) {
  * @param {number} [options.maximum] - The maximum length the text must have.
  * @param {number} [options.lowercase] - The minimum number of lowercase letters required in the text.
  * @param {number} [options.uppercase] - The minimum number of uppercase letters required in the text.
- * @param {number} [options.special] - The minimum number of special characters required in the text.
+ * @param {number} [options.special] - The minimum number of special characters (punctuation and symbols) required in the text.
  * @param {number} [options.number] - The minimum number of numeric digits required in the text.
  * @param {Array<string>} [options.disable] - An array of forbidden words that cannot be part of the text
  * @param {Array<string>} [options.require] - An array of required words that must be present in the text.
@@ -176,21 +213,23 @@ export function validate(text, options = {}) {
   });
 
   let used = [];
-  const rgx = (a, b) => new RegExp(`(?:.*\\p{${a}}.*){${b}}.*`, 'u');
   const { minimum, maximum, lowercase, uppercase, special, number, disable } = options;
 
-  const regexes = {
-    lowercase: lowercase > 0 ? rgx('Ll', lowercase) : null,
-    uppercase: uppercase > 0 ? rgx('Lu', uppercase) : null,
-    special: special > 0 ? rgx('P', special) : null,
-    number: number > 0 ? rgx('N', number) : null,
-  };
+  // Each rule counts the characters of one kind; punctuation and symbols are both special
+  const rules = [
+    ['lowercase', lowercase, /\p{Ll}/gu],
+    ['uppercase', uppercase, /\p{Lu}/gu],
+    ['special', special, /[\p{P}\p{S}]/gu],
+    ['number', number, /\p{N}/gu],
+  ];
 
   const len = length(text);
   if (len >= minimum) used.push('minimum');
   if (len <= maximum) used.push('maximum');
 
-  each((key, value) => value && value.test(text) && used.push(key), regexes);
+  for (const [name, required, rgx] of rules) {
+    if (required > 0 && length(text.match(rgx) || []) >= required) used.push(name);
+  }
 
   if (options.require || disable) {
     const textLower = lower(text);
@@ -210,10 +249,14 @@ export function validate(text, options = {}) {
  * @returns {string[]|function} An array of words or a function awaiting the string.
  */
 export function words(punct, collect) {
-  if (isUndefined(collect)) {
+  const count = arguments.length;
+  if (!count) return collect => words(0, collect);
+  if (count === 1) {
     if (isString(punct)) return words(0, punct);
+    if (isNil(punct)) return fail('words', punct);
     return collect => words(punct, collect);
   }
+  if (!isString(collect)) return fail('words', collect);
 
   // Regular expression to match non-space sequences
   const nonSpaceRgx = /\S+/g;

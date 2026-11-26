@@ -95,7 +95,7 @@ pipe(
 //=> 26
 ```
 
-This looks more readable and easier to use. You can use most functions with `pipe`. As you continue to learn, things become even simpler;
+This looks more readable and easier to use. You can use most functions with `pipe`. Each step must be a function or an array of functions; any other step throws a `TypeError`. As you continue to learn, things become even simpler;
 
 ```js
 import { pipe } from 'uty';

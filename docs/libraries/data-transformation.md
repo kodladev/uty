@@ -43,7 +43,7 @@ pipe(
 //=> Lionel Andrés Messi
 ```
 
-> If the given collection is an array, it returns the same array reference. If it's an object, it returns an array of the object's values. For example, it returns the same array reference for `[1, 2, 3, 'b', 'c']` and an array `['Elon Musk', ['Tesla', 'Space X', 'SolarCity']]` for `{ name: 'Elon Musk', companies: ['Tesla', 'Space X', 'SolarCity'] }`.
+> If the given collection is an array, it returns a new array with the same items. If it's an object, it returns an array of the object's values. Any other value is wrapped in an array. For example, it returns a new array `[1, 2, 3, 'b', 'c']` for `[1, 2, 3, 'b', 'c']` and an array `['Elon Musk', ['Tesla', 'Space X', 'SolarCity']]` for `{ name: 'Elon Musk', companies: ['Tesla', 'Space X', 'SolarCity'] }`.
 
 ---
 
@@ -96,7 +96,7 @@ toJson({
 //=> string {"id":384,"name":"Rayquaza","gender":"NA"}
 ```
 
-> For example, if you pass the array `[1, 2, 3, 'b', 'c']` to the `toJson` function, the result will be the string `"[1, 2, 3, 'b', 'c']"`. Similarly, using the object `{ id: 384, name: 'Rayquaza', gender: 'NA' }`, the resulting JSON format will be `{"id": 384, "name": "Rayquaza", "gender": "NA"}`.
+> For example, if you pass the array `[1, 2, 3, 'b', 'c']` to the `toJson` function, the result will be the string `'[1,2,3,"b","c"]'`. Similarly, using the object `{ id: 384, name: 'Rayquaza', gender: 'NA' }`, the resulting JSON format will be `{"id":384,"name":"Rayquaza","gender":"NA"}`.
 
 ---
 
@@ -116,7 +116,7 @@ toString({ id: 1 });
 //=> [object Object]
 ```
 
-> For example, if you pass the array `[1, 2, 3, 4, 5]` to the `toString` function, the result will be the string `"1, 2, 3, 4, 5"`. However, objects will be converted to the standard string format `[object Object]`.
+> For example, if you pass the array `[1, 2, 3, 4, 5]` to the `toString` function, the result will be the string `"1,2,3,4,5"`. However, objects will be converted to the standard string format `[object Object]`.
 
 ---
 

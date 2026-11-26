@@ -1,7 +1,7 @@
 {
   "name": "uty",
   "version": "0.2.3",
-  "description": "JS utils library",
+  "description": "JavaScript helpers that work the same with plain data and Promises, on arrays and objects alike",
   "keywords": [
     "js",
     "javascript",
@@ -31,6 +31,7 @@
     "email": "dev@kodla.net",
     "url": "https://kodla.net"
   },
+  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": {
@@ -79,6 +80,7 @@
     "./*.d.ts"
   ],
   "scripts": {
+    "bench": "vitest bench",
     "prebuild": "rimraf type *.d.ts -g",
     "build": "node build",
     "format": "prettier --write .",

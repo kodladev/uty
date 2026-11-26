@@ -5,11 +5,15 @@ import {
   isAsyncIterable,
   isClass,
   isCollect,
+  isEmail,
   isEmpty,
   isEqual,
   isIterable,
+  isKey,
   isNil,
+  isObject,
   isObjects,
+  isOdd,
   isPrimitive,
   isPromise,
   isRegExp,
@@ -97,6 +101,7 @@ describe('isCollect', () => {
           'objectEmpty',
           'iterableAsync',
           'objectCreate',
+          'objectCreateNull',
           'objectCreateEmpty',
         ].includes(key)
       ) {
@@ -437,3 +442,149 @@ function typeHelper(key) {
     return 'date';
   }
 }
+
+describe('isEqual:content', () => {
+  it('isEqual:primitive', () => {
+    expect(isEqual(1, 1)).toBe(true);
+    expect(isEqual(1, '1')).toBe(false);
+    expect(isEqual(NaN, NaN)).toBe(true);
+    expect(isEqual(null, undefined)).toBe(false);
+    expect(isEqual(0, null)).toBe(false);
+  });
+
+  it('isEqual:array', () => {
+    expect(isEqual([1, [2, { a: 3 }]], [1, [2, { a: 3 }]])).toBe(true);
+    expect(isEqual([1, 2, 3], [1, 2, 3, 4])).toBe(false);
+    expect(isEqual([1], { 0: 1 })).toBe(false);
+  });
+
+  it('isEqual:object', () => {
+    expect(isEqual({ a: 1, b: { c: [1, 2] } }, { b: { c: [1, 2] }, a: 1 })).toBe(true);
+    expect(isEqual({ a: 1 }, { a: 2 })).toBe(false);
+    expect(isEqual({ a: 1 }, { a: 1, b: undefined })).toBe(false);
+    expect(isEqual({ a: undefined }, { b: undefined })).toBe(false);
+  });
+
+  it('isEqual:date', () => {
+    expect(isEqual(new Date(1000), new Date(1000))).toBe(true);
+    expect(isEqual(new Date(1000), new Date(1001))).toBe(false);
+  });
+
+  it('isEqual:regexp', () => {
+    expect(isEqual(/a/g, /a/g)).toBe(true);
+    expect(isEqual(/a/g, /a/i)).toBe(false);
+  });
+
+  it('isEqual:map', () => {
+    expect(isEqual(new Map([[1, { a: 1 }]]), new Map([[1, { a: 1 }]]))).toBe(true);
+    expect(isEqual(new Map([[1, 1]]), new Map([[2, 2]]))).toBe(false);
+    expect(isEqual(new Map([[1, 1]]), new Map())).toBe(false);
+  });
+
+  it('isEqual:set', () => {
+    expect(isEqual(new Set([1, 2]), new Set([2, 1]))).toBe(true);
+    expect(isEqual(new Set([1, 2]), new Set([1, 3]))).toBe(false);
+  });
+
+  it('isEqual:error', () => {
+    expect(isEqual(new Error('a'), new Error('a'))).toBe(true);
+    expect(isEqual(new Error('a'), new Error('b'))).toBe(false);
+    expect(isEqual(new Error('a'), new TypeError('a'))).toBe(false);
+  });
+
+  it('isEqual:class', () => {
+    class Point {
+      constructor(x) {
+        this.x = x;
+      }
+    }
+    class Other {
+      constructor(x) {
+        this.x = x;
+      }
+    }
+    expect(isEqual(new Point(1), new Point(1))).toBe(true);
+    expect(isEqual(new Point(1), new Point(2))).toBe(false);
+    expect(isEqual(new Point(1), new Other(1))).toBe(false);
+    expect(isEqual(new Point(1), { x: 1 })).toBe(false);
+  });
+
+  it('isEqual:identity:only', () => {
+    const fn = () => 1;
+    const promise = Promise.resolve(1);
+    expect(isEqual(fn, fn)).toBe(true);
+    expect(
+      isEqual(
+        () => 1,
+        () => 1
+      )
+    ).toBe(false);
+    expect(isEqual(promise, promise)).toBe(true);
+    expect(isEqual(Promise.resolve(1), Promise.resolve(1))).toBe(false);
+    expect(isEqual(new WeakMap(), new WeakMap())).toBe(false);
+    expect(isEqual(Symbol('a'), Symbol('a'))).toBe(false);
+  });
+});
+
+describe('isEmail', () => {
+  it('isEmail:valid', () => {
+    expect(isEmail('someone@example.com')).toBe(true);
+    expect(isEmail('first.last+tag@mail.example.photography')).toBe(true);
+  });
+
+  it('isEmail:invalid', () => {
+    expect(isEmail('someone')).toBe(false);
+    expect(isEmail('someone@example')).toBe(false);
+    expect(isEmail('some one@example.com')).toBe(false);
+  });
+
+  it('isEmail:repeat', () => {
+    expect(isEmail('someone@example.com')).toBe(true);
+    expect(isEmail('someone@example.com')).toBe(true);
+  });
+});
+
+describe('isKey', () => {
+  it('isKey:own', () => {
+    expect(isKey('a', { a: 1 })).toBe(true);
+    expect(isKey('a', { a: undefined })).toBe(true);
+    expect(isKey(1, { 1: 'x' })).toBe(true);
+  });
+
+  it('isKey:missing', () => {
+    expect(isKey('b', { a: 1 })).toBe(false);
+    expect(isKey('toString', {})).toBe(false);
+    expect(isKey('a', [1])).toBe(false);
+    expect(isKey(null, { a: 1 })).toBe(false);
+  });
+});
+
+describe('isObject', () => {
+  it('isObject:plain', () => {
+    expect(isObject({})).toBe(true);
+    expect(isObject({ constructor: 'x' })).toBe(true);
+    expect(isObject(JSON.parse('{"a":1}'))).toBe(true);
+    expect(isObject(Object.create(null))).toBe(true);
+    expect(isObject(Object.create({ a: 1 }))).toBe(true);
+  });
+
+  it('isObject:other', () => {
+    class Point {}
+    expect(isObject(new Point())).toBe(false);
+    expect(isObject([])).toBe(false);
+    expect(isObject(new Date())).toBe(false);
+    expect(isObject(new Map())).toBe(false);
+    expect(isObject(null)).toBe(false);
+    expect(isObject('a')).toBe(false);
+  });
+});
+
+describe('isOdd', () => {
+  it('isOdd:numbers', () => {
+    expect(isOdd(3)).toBe(true);
+    expect(isOdd(-3)).toBe(true);
+    expect(isOdd(2)).toBe(false);
+    expect(isOdd(-2)).toBe(false);
+    expect(isOdd('3')).toBe(false);
+  });
+});

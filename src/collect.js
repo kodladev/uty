@@ -2,11 +2,18 @@
   Collection Interactions
   --------------------------------------------------------------------------------------------------
   Useful helpers for interacting with arrays and objects.
+
+  Every function takes its data last. Leave the data out and you get a function that waits for
+  it; pass data that cannot be processed and a `TypeError` is thrown.
+
+  `pop`, `prepend`, `push`, `remove`, `reverse`, `shift`, `sort` and `splice` change the
+  collection they are given, like the JavaScript methods they are named after. Every other
+  function leaves its input untouched and returns a new value.
   --------------------------------------------------------------------------------------------------
 */
 
-import { RAW_WHITESPACE } from './define.js';
-import { pipe } from './index.js';
+import { RAW_EMPTY, RAW_WHITESPACE } from './define.js';
+import { fail } from './fail.js';
 import {
   isArray,
   isArrayLike,
@@ -26,7 +33,6 @@ import {
   isUndefined,
 } from './is.js';
 import { length, size } from './math.js';
-import { toArray } from './to.js';
 
 /**
  * Applies the function to the collection values.
@@ -35,9 +41,10 @@ import { toArray } from './to.js';
  * @returns {*} Returns the result of applying the function to the collection.
  */
 export function apply(fn, collect) {
-  if (isUndefined(collect)) return collect => apply(fn, collect);
+  if (arguments.length < 2) return collect => apply(fn, collect);
   if (isCollect(collect)) return fn(...values(collect));
   if (isPromise(collect)) return collect.then(c => apply(fn, c));
+  return fail('apply', collect);
 }
 
 /**
@@ -47,29 +54,31 @@ export function apply(fn, collect) {
  * @returns {Array|Function} - An array of chunks if the collection is provided.
  */
 export function chunk(length, collect) {
-  if (isUndefined(collect)) return collect => chunk(length, collect);
+  if (arguments.length < 2) return collect => chunk(length, collect);
   if (isPromise(collect)) return collect.then(c => chunk(length, c));
+  if (!(length > 0)) throw new RangeError('uty: chunk needs a length above zero');
 
   const chunks = [];
-  let index = 0;
   if (isArray(collect)) {
-    do {
-      const collection = slice([index, index + length], collect);
-      push(collection, chunks);
-      index += length;
-    } while (index < size(collect));
-  } else {
-    const collectKeys = keys(collect);
-    do {
-      const keysOfChunk = slice([index, index + length], collectKeys);
-      const collection = {};
-      each(key => push(key, collect[key], collection), keysOfChunk);
-      push(collection, chunks);
-      index += length;
-    } while (index < size(collectKeys));
+    for (let index = 0; index < collect.length; index += length) {
+      chunks.push(collect.slice(index, index + length));
+    }
+    return chunks;
   }
 
-  return chunks;
+  if (isObject(collect)) {
+    const names = Object.keys(collect);
+    for (let index = 0; index < names.length; index += length) {
+      const collection = {};
+      for (let i = index; i < index + length && i < names.length; i++) {
+        collection[names[i]] = collect[names[i]];
+      }
+      chunks.push(collection);
+    }
+    return chunks;
+  }
+
+  return fail('chunk', collect);
 }
 
 /**
@@ -78,18 +87,21 @@ export function chunk(length, collect) {
  * @returns {string} A space-separated string of classes.
  */
 export function cls(...collect) {
-  const classes = [];
+  let classes = RAW_EMPTY;
   for (let i = 0, c = length(collect); i < c; i++) {
     const arg = collect[i];
-    if (isString(arg) || isNumber(arg)) classes.push(arg);
-    if (isArray(arg)) classes.push(cls.apply(null, arg));
-    if (isObject(arg)) {
+    let name = RAW_EMPTY;
+    if (isString(arg) || isNumber(arg)) name = `${arg}`;
+    else if (isArray(arg)) name = cls(...arg);
+    else if (isObject(arg)) {
       for (const key in arg) {
-        if (hasOwn(key, arg) && arg[key]) classes.push(key);
+        if (hasOwn(key, arg) && arg[key]) name += (name && RAW_WHITESPACE) + key;
       }
     }
+    // An empty name adds nothing, so the result never carries a double or trailing space
+    if (name) classes += (classes && RAW_WHITESPACE) + name;
   }
-  return classes.join(RAW_WHITESPACE);
+  return classes;
 }
 
 /**
@@ -102,14 +114,19 @@ export function cls(...collect) {
  * @returns {Array|Object|Promise} Returns the difference between the two collections.
  */
 export function diff(values, type, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(type)) return collect => diff(values, 1, collect);
-    if (isCollect(type) || isPromise(type)) return diff(values, 1, type);
-    return collect => diff(values, type, collect);
+  const count = arguments.length;
+  if (count === 1) return collect => diff(values, 1, collect);
+  if (count === 2) {
+    if (isNumber(type)) return collect => diff(values, type, collect);
+    return diff(values, 1, type);
   }
 
+  if (isPromise(values)) return values.then(v => diff(v, type, collect));
+  if (isPromise(collect)) return collect.then(c => diff(values, type, c));
+
   if (isArray(values) && isArray(collect)) {
-    return filter(item => values.indexOf(item) === -1, collect);
+    const found = new Set(values);
+    return collect.filter(item => !found.has(item));
   }
 
   if (isObject(values) && isObject(collect)) {
@@ -117,10 +134,10 @@ export function diff(values, type, collect) {
 
     if (type == 1) {
       // value diff
-      each((key, value) => {
-        // prettier-ignore
-        if (isUndefined(values[key]) || !isEqual(values[key], value)) push(key, value, collection);
-      }, collect);
+      for (const key of Object.keys(collect)) {
+        const value = collect[key];
+        if (isUndefined(values[key]) || !isEqual(values[key], value)) collection[key] = value;
+      }
     }
 
     // TODO: Add finding difference based on object keys
@@ -128,26 +145,30 @@ export function diff(values, type, collect) {
     return collection;
   }
 
-  if (isPromise(values)) return values.then(v => diff(v, collect));
-  if (isPromise(collect)) return collect.then(c => diff(values, c));
+  return fail('diff', collect);
 }
 
 /**
- * Retrieves a value from an object using a dot-separated key.
+ * Retrieves a value from an object using a dot-separated key. A missing key, or data that is
+ * `null` or `undefined`, returns the default value instead of throwing.
  *
  * @param {string|string[]} key - The key (dot-separated string or array) for the nested value.
- * @param {Object} collect - The object to retrieve the value from.
- * @param {*} def - The default value if the key is not found.
+ * @param {*} [def] - The default value if the key is not found.
+ * @param {Object} [collect] - The object to retrieve the value from.
  * @returns {*} - The value at the nested key, or the default value if not found.
  */
 export function dot(key, def, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(def) || isPrimitive(def)) return collect => dot(key, def, collect);
+  const count = arguments.length;
+  if (count === 1) return collect => dot(key, void 0, collect);
+  if (count === 2) {
+    // A string, number or boolean in second place is a default; anything else is the data.
+    if (!isNil(def) && isPrimitive(def)) return collect => dot(key, def, collect);
     return dot(key, void 0, def);
   }
+
   let p = 0;
-  key = key.split ? key.split('.') : key;
-  while (collect && p < length(key)) collect = collect[key[p++]];
+  key = isArray(key) ? key : isString(key) ? key.split('.') : [key];
+  while (!isNil(collect) && p < length(key)) collect = collect[key[p++]];
   return isUndefined(collect) || p < length(key) ? def : collect;
 }
 
@@ -158,19 +179,20 @@ export function dot(key, def, collect) {
  * @param {Array|Object|Promise} collect - The collection to iterate over.
  */
 export function each(fn, collect) {
-  if (isUndefined(collect)) return collect => each(fn, collect);
-  else if (isArray(collect)) {
-    loop(index => {
-      fn(collect[index], index);
-    }, length(collect));
-  } else if (isObject(collect)) {
-    const object = keys(collect);
-    loop(index => {
-      const key = object[index];
-      const value = collect[key];
-      fn(key, value, index);
-    }, length(object));
-  } else if (isPromise(collect)) return collect.then(c => each(fn, c));
+  if (arguments.length < 2) return collect => each(fn, collect);
+  if (isArray(collect)) {
+    for (let index = 0, c = collect.length; index < c; index++) fn(collect[index], index);
+    return;
+  }
+  if (isObject(collect)) {
+    const names = Object.keys(collect);
+    for (let index = 0, c = names.length; index < c; index++) {
+      fn(names[index], collect[names[index]], index);
+    }
+    return;
+  }
+  if (isPromise(collect)) return collect.then(c => each(fn, c));
+  return fail('each', collect);
 }
 
 /**
@@ -180,9 +202,10 @@ export function each(fn, collect) {
  * @returns {Array<Array>} Returns an array of [key, value] pairs.
  */
 export function entries(collect) {
-  if (isUndefined(collect)) return collect => entries(collect);
+  if (!arguments.length) return collect => entries(collect);
   if (isObject(collect)) return Object.entries(collect);
   if (isPromise(collect)) return collect.then(c => entries(c));
+  return fail('entries', collect);
 }
 
 /**
@@ -193,9 +216,10 @@ export function entries(collect) {
  * @returns {boolean|Promise<boolean>} Returns true if every element satisfies the provided function, otherwise false.
  */
 export function every(fn, collect) {
-  if (isUndefined(collect)) return collect => every(fn, collect);
+  if (arguments.length < 2) return collect => every(fn, collect);
   if (isCollect(collect)) return values(collect).every(fn);
   if (isPromise(collect)) return collect.then(c => every(fn, c));
+  return fail('every', collect);
 }
 
 /**
@@ -206,34 +230,23 @@ export function every(fn, collect) {
  * @returns {*} Returns the filtered collection.
  */
 export function filter(fn, collect) {
-  if (isUndefined(collect)) {
-    // prettier-ignore
-    if (isUndefined(fn) || isFunction(fn)) return collect => filter(fn, collect);
-    return filter(false, fn);
-  }
+  const count = arguments.length;
+  if (!count || (count === 1 && isFunction(fn))) return collect => filter(fn, collect);
+  if (count === 1) return filter(false, fn);
 
-  if (isArray(collect)) {
-    if (fn) return collect.filter(fn);
-    const result = [];
-    each(item => filtered(item) && push(item, result), collect);
-    return result;
-  }
+  if (isArray(collect)) return collect.filter(fn || (item => filtered(item)));
 
   if (isObject(collect)) {
     const result = {};
-    each((key, value) => {
-      if (fn) {
-        if (fn(value, key)) {
-          push(key, value, result);
-        }
-      } else if (filtered(value)) {
-        push(key, value, result);
-      }
-    }, collect);
+    for (const key of Object.keys(collect)) {
+      const value = collect[key];
+      if (fn ? fn(value, key) : filtered(value)) result[key] = value;
+    }
     return result;
   }
 
   if (isPromise(collect)) return collect.then(c => filter(fn, c));
+  return fail('filter', collect);
 }
 
 /**
@@ -258,14 +271,16 @@ function filtered(item) {
  * @returns {*} Returns the flattened collection.
  */
 export function flat(depth, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(depth)) return collect => flat(1, collect);
+  const count = arguments.length;
+  if (!count) return collect => flat(1, collect);
+  if (count === 1) {
     if (isNumber(depth)) return collect => flat(depth, collect);
     return flat(1, depth);
   }
 
   if (isCollect(collect)) return values(collect).flat(depth);
   if (isPromise(collect)) return collect.then(c => flat(depth, c));
+  return fail('flat', collect);
 }
 
 /**
@@ -277,13 +292,16 @@ export function flat(depth, collect) {
  * @returns {string|Function} The joined string or a function if `collect` is undefined.
  */
 export function implode(key, glue, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(glue)) return collect => implode(key, collect);
+  const count = arguments.length;
+  if (count === 1) return collect => implode(key, void 0, collect);
+  if (count === 2) {
     if (isString(glue)) return collect => implode(key, glue, collect);
     return implode(key, void 0, glue);
   }
+
+  if (!isArray(collect)) return fail('implode', collect);
   if (isUndefined(glue)) return collect.join(key);
-  return pluck(key, collect).join(glue);
+  return pluck(key, void 0, collect).join(glue);
 }
 
 /**
@@ -295,13 +313,16 @@ export function implode(key, glue, collect) {
  * @returns {Promise|*} - Returns a result or resolves a promise if async.
  */
 export function iterate(fn, stop, length) {
-  if (isUndefined(length)) {
+  const count = arguments.length;
+  if (count === 1) return length => iterate(fn, false, length);
+  if (count === 2) {
     if (isBoolean(stop)) return length => iterate(fn, stop, length);
     return iterate(fn, false, stop);
   }
 
   if (isPromise(length)) return size(length).then(l => iterate(fn, stop, l));
   else if (isArrayLike(length)) length = size(length);
+  if (!isNumber(length)) return fail('iterate', length);
 
   let index = 0;
 
@@ -329,20 +350,23 @@ export function iterate(fn, stop, length) {
  * @returns {string|Function} The joined string or a function if `collect` is undefined.
  */
 export function join(glue, finalGlue, collect) {
-  if (isUndefined(collect)) {
-    if (isArray(glue) || isObject(glue)) return join(void 0, void 0, glue);
-    if (isUndefined(finalGlue)) return collect => join(glue, collect);
+  const count = arguments.length;
+  if (!count) return collect => join(void 0, void 0, collect);
+  if (count === 1) {
+    if (isCollect(glue) || isNil(glue)) return join(void 0, void 0, glue);
+    return collect => join(glue, void 0, collect);
+  }
+  if (count === 2) {
     if (isString(finalGlue)) return collect => join(glue, finalGlue, collect);
     return join(glue, void 0, finalGlue);
   }
 
+  if (!isCollect(collect)) return fail('join', collect);
+
   const collection = values(collect);
-  if (isUndefined(finalGlue)) return implode(glue, collection);
-  const len = size(collection);
-  if (len === 0) return '';
-  if (len === 1) return last(collection);
-  const finalItem = pop(collection);
-  return implode(glue, collection) + finalGlue + finalItem;
+  const len = collection.length;
+  if (isUndefined(finalGlue) || len < 2) return collection.join(glue);
+  return collection.slice(0, -1).join(glue) + finalGlue + collection[len - 1];
 }
 
 /**
@@ -352,13 +376,12 @@ export function join(glue, finalGlue, collect) {
  * @returns {Object} Map of keys and their corresponding values.
  */
 export function keyMap(collect) {
-  if (isUndefined(collect)) return collect => keyMap(collect);
+  if (!arguments.length) return collect => keyMap(collect);
+  if (!isCollect(collect)) return fail('keyMap', collect);
 
   const paths = {};
 
-  each((item, index) => {
-    buildKeyMap(item, index, paths);
-  }, collect);
+  for (const key of Object.keys(collect)) buildKeyMap(collect[key], key, paths);
 
   return paths;
 }
@@ -371,14 +394,8 @@ export function keyMap(collect) {
  * @param {Object} paths - Object to store the key map.
  */
 function buildKeyMap(item, index, paths) {
-  if (isObject(item)) {
-    each((key, value) => {
-      buildKeyMap(value, `${index}.${key}`, paths);
-    }, item);
-  } else if (isArray(item)) {
-    each((value, i) => {
-      buildKeyMap(value, `${index}.${i}`, paths);
-    }, item);
+  if (isCollect(item)) {
+    for (const key of Object.keys(item)) buildKeyMap(item[key], `${index}.${key}`, paths);
   }
 
   paths[index] = item;
@@ -392,10 +409,11 @@ function buildKeyMap(item, index, paths) {
  * @returns {boolean} Returns true if the collection contains the item(s), otherwise false.
  */
 export function has(items, collect) {
-  if (isUndefined(collect)) return collect => has(collect);
+  if (arguments.length < 2) return collect => has(items, collect);
   if (isArray(collect) || isString(collect)) return includes(items, collect);
   if (isObject(collect)) return hasOwn(items, collect);
   // TODO: Add support for multiple items
+  return fail('has', collect);
 }
 
 /**
@@ -426,32 +444,36 @@ export function hasOwn(item, collect) {
  * @returns {Array|Promise} Returns an array of keys.
  */
 export function keys(collect) {
-  if (isUndefined(collect)) return collect => keys(collect);
+  if (!arguments.length) return collect => keys(collect);
   if (isObject(collect)) return Object.keys(collect);
   if (isPromise(collect)) return collect.then(c => keys(c));
+  return fail('keys', collect);
 }
 
 /**
- * Returns the last element in a collection based on a provided function or default criteria.
+ * Returns the last element in a collection, the last element that passes a function, or the
+ * last `n` elements when a number is given. The collection is left untouched.
  *
- * @param {Function|boolean} [fn] - The function to test each element with or a boolean for default criteria.
+ * @param {Function|number} [fn] - The function to test each element with, or how many elements to return.
  * @param {Array|Object|Promise} collect - The collection to retrieve the last element from.
  * @returns {*} Returns the last element in the collection.
  */
 export function last(fn, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(fn) || isFunction(fn) || isNumber(fn)) return collect => last(fn, collect);
-    return last(false, fn);
+  const count = arguments.length;
+  if (!count || (count === 1 && (isFunction(fn) || isNumber(fn)))) {
+    return collect => last(fn, collect);
   }
+  if (count === 1) return last(false, fn);
 
-  if (isFunction(fn)) collect = filter(fn, collect);
-  if (isNumber(fn)) return pop(fn, collect);
-  if (isArray(collect)) return collect[size(collect) - 1];
-  if (isObject(collect)) {
-    const key = keys(collect);
-    return collect[key[size(key) - 1]];
-  }
   if (isPromise(collect)) return collect.then(c => last(fn, c));
+  if (isFunction(fn)) collect = filter(fn, collect);
+  if (isNumber(fn) && fn !== 1) return take(-fn, collect);
+  if (isArray(collect)) return collect[collect.length - 1];
+  if (isObject(collect)) {
+    const names = Object.keys(collect);
+    return collect[names[names.length - 1]];
+  }
+  return fail('last', collect);
 }
 
 /**
@@ -476,7 +498,7 @@ export function loop(fn, length) {
  * @returns {*} Returns a new collection with the results of applying the function to each element.
  */
 export function map(fn, collect) {
-  if (isUndefined(collect)) return collect => map(fn, collect);
+  if (arguments.length < 2) return collect => map(fn, collect);
   if (isArray(collect)) return collect.map(fn);
   if (isAsyncIterable(collect)) {
     const iterator = collect[Symbol.asyncIterator]();
@@ -496,69 +518,68 @@ export function map(fn, collect) {
   }
   if (isObject(collect)) {
     const collection = {};
-    each((key, value) => push(key, fn(value, key), collection), collect);
+    for (const key of Object.keys(collect)) collection[key] = fn(collect[key], key);
     return collection;
   }
   if (isPromise(collect)) return collect.then(c => map(fn, c));
+  return fail('map', collect);
 }
 
 /**
- * Merges two collections by concatenating arrays or extending objects.
+ * Merges two collections into a new one by concatenating arrays or combining objects. When both
+ * objects hold the same key, the value from the first argument wins. Neither collection is
+ * changed.
  *
- * @param {Array|Object|Promise} seed - The first collection.
- * @param {Array|Object|Promise} collect - The second collection.
+ * @param {Array|Object|Promise} seed - The collection to merge in.
+ * @param {Array|Object|Promise} collect - The collection to merge into.
  * @returns {Array|Object|Promise} Returns the merged collection.
  */
 export function merge(seed, collect) {
-  if (isUndefined(collect)) return collect => merge(seed, collect);
-  if (isArray(seed) && isArray(collect)) return collect.concat(seed);
-
-  // prettier-ignore
-  if (isObject(seed) && isObject(collect)) return Object.assign(collect, seed);
-
+  if (arguments.length < 2) return collect => merge(seed, collect);
   if (isPromise(seed)) return seed.then(s => merge(s, collect));
   if (isPromise(collect)) return collect.then(c => merge(seed, c));
+  if (isArray(seed) && isArray(collect)) return collect.concat(seed);
+  if (isObject(seed) && isObject(collect)) return { ...collect, ...seed };
+  return fail('merge', collect);
 }
 
 /**
- * Deeply merges two values together.
+ * Deeply merges two collections into a new one. Nested objects are merged key by key; any other
+ * value from the first argument replaces the one in the second. Neither collection is changed.
  *
- * @param {Array|Object|Promise} seed - The initial value or partial result of the merge.
- * @param {Array|Object|Promise} collect - The value to merge with the seed.
+ * @param {Array|Object|Promise} seed - The collection to merge in.
+ * @param {Array|Object|Promise} collect - The collection to merge into.
  * @returns {Array|Object|Promise} The merged result.
  */
 export function mergeDeep(seed, collect) {
-  if (isUndefined(collect)) return collect => mergeDeep(seed, collect);
-  if (isArray(seed) && isArray(collect)) return collect.concat(seed);
-
-  // prettier-ignore
-  if (isObject(seed) && isObject(collect)) return mergeDeepObject(collect, seed);
-
+  if (arguments.length < 2) return collect => mergeDeep(seed, collect);
   if (isPromise(seed)) return seed.then(s => mergeDeep(s, collect));
   if (isPromise(collect)) return collect.then(c => mergeDeep(seed, c));
+  if (isArray(seed) && isArray(collect)) return collect.concat(seed);
+  if (isObject(seed) && isObject(collect)) return mergeDeepObject(collect, seed);
+  return fail('mergeDeep', collect);
 }
 
 /**
- * Recursively merges objects deeply.
- * @param {Object} seed - The initial object.
- * @param  {...Object} collect - Objects to merge into the seed.
+ * Builds a new object from `target` with `source` merged in, level by level.
+ *
+ * A `__proto__` key in the source is skipped, so merging parsed JSON can never reach
+ * `Object.prototype`.
+ *
+ * @private
+ * @param {Object} target - The object to start from.
+ * @param {Object} source - The object whose values win.
  * @returns {Object} - The merged object.
  */
-function mergeDeepObject(seed, ...collect) {
-  if (!size(collect)) return seed;
-  const source = collect.shift();
-  if (isObject(seed) && isObject(source)) {
-    each(key => {
-      if (isObject(source[key])) {
-        if (!seed[key]) Object.assign(seed, { [key]: {} });
-        mergeDeepObject(seed[key], source[key]);
-      } else {
-        Object.assign(seed, { [key]: source[key] });
-      }
-    }, source);
+function mergeDeepObject(target, source) {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    if (key === '__proto__') continue;
+    const value = source[key];
+    const current = hasOwn(key, target) && isObject(target[key]) ? target[key] : {};
+    result[key] = isObject(value) ? mergeDeepObject(current, value) : value;
   }
-
-  return mergeDeepObject(seed, ...collect);
+  return result;
 }
 
 /**
@@ -569,7 +590,7 @@ function mergeDeepObject(seed, ...collect) {
  * @returns {Function|Array|Object} Function if `collect` is undefined, otherwise the original collection.
  */
 export function peek(fn, collect) {
-  if (isUndefined(collect)) return collect => peek(fn, collect);
+  if (arguments.length < 2) return collect => peek(fn, collect);
   return map(tap(fn), collect);
 }
 
@@ -582,84 +603,75 @@ export function peek(fn, collect) {
  * @returns {Function|Array|Object} Function if `collect` is undefined, otherwise the plucked values.
  */
 export function pluck(key, seed, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(seed)) return collect => pluck(key, collect);
-    return pluck(key, void 0, seed);
+  const count = arguments.length;
+  if (count === 1) return collect => pluck(key, void 0, collect);
+  if (count === 2) return pluck(key, void 0, seed);
+  if (isNil(collect)) return fail('pluck', collect);
+
+  const items = isArray(collect) ? collect : [collect];
+  const read = reader(key);
+
+  if (isUndefined(seed)) return items.map(item => read(item));
+
+  // A seed key turns the result into an object keyed by that value
+  const collection = {};
+  const name = reader(seed);
+
+  for (let index = 0; index < items.length; index++) {
+    const id = name(items[index]);
+    if (!isNil(id)) collection[id] = read(items[index]);
   }
 
-  let fn = value;
-  let collection = [];
-
-  // Initialize collection as an object if seed is provided
-  if (!isUndefined(seed)) collection = {};
-
-  // Use wildcard function if key contains '*'
-  if (key.indexOf('*') !== -1) fn = pluckWildcard;
-
-  if (isArray(collect)) {
-    each(item => {
-      pluckInit(fn, key, item, seed, collection);
-    }, collect);
-
-    return collection;
-  } else {
-    pluckInit(fn, key, collect, seed, collection);
-    return collection;
-  }
+  return collection;
 }
 
 /**
- * Handles wildcard keys and extracts matching values from the collection.
+ * Prepares a function that reads one key from an item. The key is parsed once, so reading it
+ * from every item of a long list costs a property access; a key holding `*` collects every match.
  *
+ * @private
+ * @param {string} key - The key, dot-separated, optionally with wildcards.
+ * @returns {Function} A function that takes an item and returns the value under the key.
+ */
+function reader(key) {
+  if (!isString(key)) return item => value(key, item);
+  if (key.indexOf('*') !== -1) return item => pluckWildcard(key, item);
+
+  const path = key.indexOf('.') === -1 ? null : key.split('.');
+
+  return item => {
+    // A missing item fails and a nested list is read item by item, as `value` does
+    if (isNil(item) || isArray(item)) return value(key, item);
+    if (!path) return item[key];
+    for (let p = 0; p < path.length && !isNil(item); p++) item = item[path[p]];
+    return item;
+  };
+}
+
+/**
+ * Walks a wildcard key one segment at a time; `*` steps into every value of the current level.
+ *
+ * @private
  * @param {string} key - The wildcard key.
  * @param {Array|Object} collect - The collection to pluck values from.
  * @returns {Array} The plucked values.
  */
 function pluckWildcard(key, collect) {
-  collect = [collect];
-  const collection = [];
-  const paths = keyMap(collect);
-  const regex = new RegExp(`0.${key}`, 'g');
-  const numberOfLevels = size(split('.', `0.${key}`));
-  pipe(
-    collect,
-    keyMap(),
-    keys(),
-    map(k => {
-      const matching = k.match(regex);
-      if (matching) {
-        const match = matching[0];
-        if (size(split('.', match)) === numberOfLevels) {
-          push(paths[match], collection);
-        }
-      }
-    })
-  );
-  return collection;
-}
+  let found = [collect];
+  const path = key.split('.');
 
-/**
- * Initializes the plucking process and merges results into the collection.
- *
- * @param {Function} fn - Function to apply to each element.
- * @param {string} key - The key to pluck values for.
- * @param {any} item - The current item to process.
- * @param {string} [seed] - Optional seed key to structure the result.
- * @param {Array|Object} collection - The collection to store the results.
- */
-function pluckInit(fn, key, item, seed, collection) {
-  const result = fn(key, item);
-  let seedResult = null;
-
-  // If seed is provided, extract the seed result
-  if (!isUndefined(seed)) seedResult = fn(seed, item);
-
-  // Merge the result into the collection
-  if (seedResult) {
-    merge({ [seedResult]: result }, collection);
-  } else {
-    push(result, collection);
+  for (let p = 0; p < path.length; p++) {
+    const next = [];
+    for (let index = 0; index < found.length; index++) {
+      const item = found[index];
+      if (path[p] === '*') {
+        if (isCollect(item)) next.push(...values(item));
+      } else if (!isNil(item) && !isUndefined(item[path[p]])) next.push(item[path[p]]);
+    }
+    found = next;
   }
+
+  return found;
 }
 
 /**
@@ -669,42 +681,37 @@ function pluckInit(fn, key, item, seed, collection) {
  * @returns {*} - The popped element(s) from the collection.
  */
 export function pop(length, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(length)) return collect => pop(length, collect);
+  const count = arguments.length;
+  if (!count) return collect => pop(void 0, collect);
+  if (count === 1) {
+    if (isNumber(length)) return collect => pop(length, collect);
     return pop(void 0, length);
   }
   if (isPromise(collect)) return collect.then(c => pop(length, c));
 
   if (isUndefined(length)) length = 1;
-  if (isEmpty(collect)) return null;
   if (isArray(collect)) {
-    if (length === 1) {
-      return collect.pop();
-    }
-    return splice(-length, collect);
+    if (!collect.length) return null;
+    return length === 1 ? collect.pop() : collect.splice(-length);
   }
   if (isObject(collect)) {
-    const cKeys = keys(collect);
+    const names = Object.keys(collect);
+    if (!names.length) return null;
     if (length === 1) {
-      const key = cKeys[size(cKeys) - 1];
-      const last = collect[key];
-      remove(key, collect);
-      return last;
+      const name = names[names.length - 1];
+      const item = collect[name];
+      delete collect[name];
+      return item;
     }
-    const poppedKeys = slice(-length, cKeys);
-    const newObject = reduce(
-      (acc, current) => {
-        acc[current] = collect[current];
-        return acc;
-      },
-      {},
-      poppedKeys
-    );
-    remove(collect, poppedKeys);
-    return newObject;
+    const popped = {};
+    for (const name of names.slice(-length)) {
+      popped[name] = collect[name];
+      delete collect[name];
+    }
+    return popped;
   }
 
-  return null;
+  return fail('pop', collect);
 }
 
 /**
@@ -716,26 +723,30 @@ export function pop(length, collect) {
  * @returns {Array|Object|string|Function} The modified collection, or a function if `collect` is undefined.
  */
 export function prepend(key, value, collect) {
-  if (isUndefined(collect)) {
-    if (isCollect(value) || isString(value)) return prepend(key, void 0, value);
+  const count = arguments.length;
+  if (count === 1) return collect => prepend(key, void 0, collect);
+  if (count === 2) {
+    if (isCollect(value) || isString(value) || isNil(value)) return prepend(key, void 0, value);
     return collect => prepend(key, value, collect);
   }
 
-  if (isString(collect)) {
-    return `${key}` + collect;
-  } else if (isArray(collect)) {
-    if (isArray(key)) {
-      each(value => {
-        collect.unshift(value);
-      }, reverse(key));
-    } else {
-      collect.unshift(key);
-    }
-  } else if (isObject(collect)) {
-    return merge(collect, { [key]: value });
+  if (isString(collect)) return `${key}` + collect;
+
+  if (isArray(collect)) {
+    if (isArray(key)) collect.unshift(...key);
+    else collect.unshift(key);
+    return collect;
   }
 
-  return collect;
+  if (isObject(collect)) {
+    // Keys keep their insertion order, so the rest is taken out and put back after the new key
+    const rest = { ...collect };
+    for (const name of Object.keys(rest)) delete collect[name];
+    collect[key] = value;
+    return Object.assign(collect, rest);
+  }
+
+  return fail('prepend', collect);
 }
 
 /**
@@ -747,9 +758,10 @@ export function prepend(key, value, collect) {
  * @returns {Array|Object|Promise} Returns the updated collection or object.
  */
 export function push(key, value, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(value)) return collect => push(key, 0, collect);
-    if (isArray(value)) return push(key, 0, value);
+  const count = arguments.length;
+  if (count === 1) return collect => push(key, 0, collect);
+  if (count === 2) {
+    if (isArray(value) || isNil(value)) return push(key, 0, value);
     if (isPromise(value)) return value.then(v => push(key, 0, v));
     return collect => push(key, value, collect);
   }
@@ -766,10 +778,13 @@ export function push(key, value, collect) {
   }
 
   if (isPromise(collect)) return collect.then(c => push(key, value, c));
+  return fail('push', collect);
 }
 
 /**
- * Reduces a collection to a single value by applying a function to each element.
+ * Reduces a collection to a single value by applying a function to each element. Without a
+ * seed the first element starts the reduction, as in `Array.prototype.reduce`; an empty
+ * collection without a seed gives `undefined`.
  *
  * @param {Function|Array} fn - The function to apply to each element or an array containing [fn, seed].
  * @param {*} [seed] - The initial value or collection to start the reduction.
@@ -777,36 +792,60 @@ export function push(key, value, collect) {
  * @returns {*} Returns the reduced value.
  */
 export function reduce(fn, seed, collect) {
-  if (isUndefined(collect)) {
+  const count = arguments.length;
+  if (count === 1) {
     if (isArray(fn)) return collect => reduce(fn[0], fn[1], collect);
-    if (isUndefined(seed)) return collect => reduce(fn, collect);
-    return reduce(fn, 0, seed);
+    return collect => reduce(fn, collect);
+  }
+  if (count === 2) {
+    if (isArray(fn)) return reduce(fn[0], fn[1], seed);
+    collect = seed;
   }
 
+  const seeded = count > 2;
+
   if (isArray(collect)) {
-    return collect.reduce(fn, seed);
+    if (seeded) return collect.reduce(fn, seed);
+    return collect.length ? collect.reduce(fn) : void 0;
   }
 
   if (isObject(collect)) {
-    each(key => {
-      seed = fn(seed, collect[key], key);
-    }, collect);
-    return seed;
+    const names = Object.keys(collect);
+    let index = 0;
+    let result = seeded ? seed : collect[names[index++]];
+    for (; index < names.length; index++) {
+      result = fn(result, collect[names[index]], names[index]);
+    }
+    return result;
   }
+
+  return fail('reduce', collect);
 }
 
 /**
- * Removes specified keys from a collection.
- * @param {Array|string} keys - The keys to be removed from the collection.
+ * Removes specified keys from a collection, in place. In an array the items at the given
+ * indexes are taken out and the rest move up, so no empty slots are left behind.
+ * @param {Array|string|number} keys - The keys, or array indexes, to be removed from the collection.
  * @param {Object|Array} [collect] - The collection from which keys are to be removed.
  * @returns {Object|Array|Function} - The modified collection with the keys removed.
  */
 export function remove(keys, collect) {
-  if (isUndefined(collect)) return collect => remove(keys, collect);
+  if (arguments.length < 2) return collect => remove(keys, collect);
   if (isPromise(collect)) return collect.then(c => remove(keys, c));
+  if (!isCollect(collect)) return fail('remove', collect);
+
+  if (isArray(collect)) {
+    // From the highest index down, so removing one item does not shift the ones still to go
+    const indexes = [...new Set(isArray(keys) ? keys : [keys])].sort((a, b) => b - a);
+    for (let i = 0; i < indexes.length; i++) {
+      const index = Number(indexes[i]);
+      if (Number.isInteger(index) && index >= 0 && index < collect.length) collect.splice(index, 1);
+    }
+    return collect;
+  }
 
   if (isArray(keys)) {
-    each(key => delete collect[key], keys);
+    for (let index = 0; index < keys.length; index++) delete collect[keys[index]];
   } else {
     delete collect[keys];
   }
@@ -815,14 +854,15 @@ export function remove(keys, collect) {
 }
 
 /**
- * Reverses the order of elements in an array.
+ * Reverses the order of elements in an array, in place.
  *
  * @param {*} collect - The array to reverse.
- * @returns {*} Returns a new array with reversed elements.
+ * @returns {*} Returns the same array with its elements reversed.
  */
 export function reverse(collect) {
-  if (isUndefined(collect)) return collect => reverse(collect);
+  if (!arguments.length) return collect => reverse(collect);
   if (isArray(collect)) return collect.reverse();
+  return fail('reverse', collect);
 }
 
 /**
@@ -833,22 +873,19 @@ export function reverse(collect) {
  * @returns {Function|any|null} If the collection is an array, returns the shifted elements.
  */
 export function shift(count, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(count)) return collect => shift(count, collect);
+  const args = arguments.length;
+  if (!args) return collect => shift(void 0, collect);
+  if (args === 1) {
+    if (isNumber(count)) return collect => shift(count, collect);
     return shift(void 0, count);
   }
 
-  if (isPromise(collect)) return collect.then(c => shift(c));
+  if (isPromise(collect)) return collect.then(c => shift(count, c));
   if (isUndefined(count)) count = 1;
 
-  if (isArray(collect)) {
-    if (isEqual(count, 1)) {
-      return collect.shift();
-    }
-    return splice([0, count], collect);
-  }
   // TODO: object support
-  return null;
+  if (!isArray(collect)) return fail('shift', collect);
+  return count === 1 ? collect.shift() : collect.splice(0, count);
 }
 
 /**
@@ -859,34 +896,13 @@ export function shift(count, collect) {
  * @returns {*} Returns a new array containing the extracted section.
  */
 export function slice(key, collect) {
-  if (isUndefined(collect)) return collect => slice(key, collect);
+  if (arguments.length < 2) return collect => slice(key, collect);
+  if (!isArray(collect)) return fail('slice', collect);
 
-  let index;
-  let limit;
-  let segment;
+  const [index, limit, segment] = isArray(key) ? key : [key];
 
-  if (isArray(key)) {
-    index = key[0];
-    limit = key[1];
-    segment = key[2];
-  } else {
-    index = key;
-  }
-
-  if (isArray(collect)) {
-    let collection;
-    if (!isUndefined(segment)) {
-      collection = collect.slice(index);
-      collection = collection.slice(0, limit);
-    } else {
-      if (!isUndefined(limit)) {
-        collection = collect.slice(index, limit);
-      } else {
-        collection = collect.slice(index);
-      }
-    }
-    return collection;
-  }
+  if (!isUndefined(segment)) return collect.slice(index).slice(0, limit);
+  return collect.slice(index, limit);
 }
 
 /**
@@ -897,144 +913,108 @@ export function slice(key, collect) {
  * @returns {boolean|Function} - Returns true if the condition is met, otherwise false.
  */
 export function some(key, value, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(value)) {
-      return collect => some(key, collect);
-    }
-
+  const count = arguments.length;
+  if (count === 1) return collect => some(key, void 0, collect);
+  if (count === 2) {
     if (isPromise(value)) return value.then(v => some(key, void 0, v));
-
-    if (!isCollect(value)) {
-      return collect => some(key, value, collect);
-    }
-
-    return some(key, void 0, value);
+    if (isCollect(value) || isNil(value)) return some(key, void 0, value);
+    return collect => some(key, value, collect);
   }
 
   if (isPromise(key)) return key.then(k => some(k, value, collect));
   if (isPromise(value)) return value.then(v => some(key, v, collect));
   if (isPromise(collect)) return collect.then(c => some(key, value, c));
+  if (!isCollect(collect)) return fail('some', collect);
+
+  const list = isArray(collect);
 
   if (!isUndefined(value)) {
-    if (isArray(collect)) {
-      // Check if the key-value pair exists in an array of objects
-      return (
-        pipe(
-          collect,
-          filter(items => !isUndefined(items[key]) && items[key] === value),
-          size
-        ) > 0
-      );
-    }
-    // Check if the key-value pair exists in an object
-    return !isUndefined(collect[key]) && collect[key] === value;
+    // Check if the key-value pair exists in an array of objects, or in an object
+    if (list) return collect.some(item => !isNil(item) && item[key] === value);
+    return collect[key] === value;
   }
 
   if (isFunction(key)) {
     // Check if any item in the collection satisfies the condition provided by the function
-    return (
-      pipe(
-        collect,
-        filter((item, index) => key(item, index)),
-        toArray,
-        size
-      ) > 0
-    );
+    if (list) return collect.some((item, index) => key(item, index));
+    for (const name of Object.keys(collect)) {
+      if (key(collect[name], name)) return true;
+    }
+    return false;
   }
 
-  if (isArray(collect)) {
-    // Check if a value exists in an array
-    return collect.indexOf(key) !== -1;
-  }
-
-  // Check if a key exists in an object
-  const keysAndValues = values(collect);
-  push(keys(collect), 1, keysAndValues);
-  return keysAndValues.indexOf(key) !== -1;
+  // Check if a value exists in an array, or a key or a value exists in an object
+  if (list) return collect.indexOf(key) !== -1;
+  return Object.keys(collect).indexOf(key) !== -1 || Object.values(collect).indexOf(key) !== -1;
 }
 
 /**
- * Sorts a collection based on the provided comparator function.
+ * Sorts a collection in place, based on the provided comparator function. Without one, numbers
+ * are sorted by value and everything else alphabetically.
  *
  * @param {Function|Array} [fn] - Comparator function to determine the order of elements.
  * @param {Array} [collect] - The collection of elements to sort.
  * @returns {Array} - The sorted collection.
  */
 export function sort(fn, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(fn)) return collect => sort(fn, collect);
-    if (isArray(fn)) {
-      return sort(void 0, fn);
-    } else {
-      return collect => sort(fn, collect);
-    }
-  }
+  const count = arguments.length;
+  if (!count || (count === 1 && isFunction(fn))) return collect => sort(fn, collect);
+  if (count === 1) return sort(void 0, fn);
+  if (!isArray(collect)) return fail('sort', collect);
 
-  if (isUndefined(fn)) {
-    if (every(item => isNumber(item), collect)) {
-      collect.sort((a, b) => a - b);
-    } else {
-      collect.sort();
-    }
-  } else {
-    collect.sort(fn);
-  }
-
-  return collect;
+  if (!isUndefined(fn)) return collect.sort(fn);
+  if (collect.every(item => isNumber(item))) return collect.sort((a, b) => a - b);
+  return collect.sort();
 }
 
 /**
  * Changes the contents of an array by removing or replacing existing elements and/or adding new elements in place.
  *
- * @param {*} key - The starting index or an array containing [start, deleteCount, ...items].
+ * @param {*} key - The starting index or an array containing [start, deleteCount, items].
  * @param {*} collect - The array to modify.
- * @returns {*} Returns a new array with the modified contents.
+ * @returns {*} Returns an array with the removed elements.
  */
 export function splice(key, collect) {
-  if (isUndefined(collect)) return collect => splice(key, collect);
+  if (arguments.length < 2) return collect => splice(key, collect);
 
-  let index;
-  let limit;
-  let replace;
-
-  if (isArray(key)) {
-    index = key[0];
-    limit = key[1];
-    replace = key[2];
-  } else {
-    index = key;
-  }
-
-  const s = (...a) => collect.splice(...a);
+  const [index, limit, replace] = isArray(key) ? key : [key];
 
   if (isArray(collect)) {
-    // prettier-ignore
-    if (isUndefined(limit) && isUndefined(replace)) return s(index);
-    if (isUndefined(replace)) return s(index, limit);
-    if (!isUndefined(replace)) return s(index, limit, ...replace);
+    if (isUndefined(limit) && isUndefined(replace)) return collect.splice(index);
+    if (isUndefined(replace)) return collect.splice(index, limit);
+    return collect.splice(index, limit, ...replace);
   }
 
   if (isPromise(collect)) return collect.then(c => splice(key, c));
+  return fail('splice', collect);
 }
 
 /**
- * Splits a collection based on a key or a specified number of groups.
+ * Splits a string by a delimiter, or an array into a number of groups. Groups are filled as
+ * evenly as possible and the array is left untouched.
+ *
  * @param {string|number} key - The delimiter for splitting strings or the number of groups.
- * @param {Array|Object|string} [collect] - The collection to be split.
+ * @param {Array|string} [collect] - The collection to be split.
  * @returns {Array|string|Function} - An array of split groups if the collection is provided.
  */
 export function split(key, collect) {
-  if (isUndefined(collect)) return collect => split(key, collect);
+  if (arguments.length < 2) return collect => split(key, collect);
   if (isPromise(collect)) return collect.then(c => split(key, c));
 
   if (isString(collect)) return collect.split(key);
+  if (!isArray(collect)) return fail('split', collect);
 
   const collection = [];
-  const itemsPerGroup = Math.round(size(collect) / key);
-  loop(() => {
-    const spliceValue = splice([0, itemsPerGroup], collect);
-    push(spliceValue, collection);
-  }, key);
+  const total = collect.length;
+  const perGroup = Math.floor(total / key);
+  const extra = total % key;
+  let start = 0;
+
+  for (let group = 0; group < key && start < total; group++) {
+    const end = start + perGroup + (group < extra ? 1 : 0);
+    collection.push(collect.slice(start, end));
+    start = end;
+  }
 
   return collection;
 }
@@ -1042,39 +1022,25 @@ export function split(key, collect) {
 /**
  * Takes a specified number of elements from a collection.
  *
- * @param {number} size - Number of elements to take. If negative, takes from the end.
+ * @param {number} count - Number of elements to take. If negative, takes from the end.
  * @param {Array|Object} [collect] - Collection to take from.
  * @returns {Function|Array|Object} Function if `collect` is undefined, otherwise sliced collection.
  */
-export function take(size, collect) {
-  if (isUndefined(collect)) return collect => take(size, collect);
+export function take(count, collect) {
+  if (arguments.length < 2) return collect => take(count, collect);
+
+  if (isArray(collect)) return count < 0 ? collect.slice(count) : collect.slice(0, count);
 
   if (isObject(collect)) {
-    const collectKeys = keys(collect);
-    let slicedKeys;
-
-    if (size < 0) {
-      slicedKeys = slice(size, collectKeys);
-    } else {
-      slicedKeys = slice([0, size], collectKeys);
-    }
-
+    const names = Object.keys(collect);
     const collection = {};
-
-    each(prop => {
-      if (slicedKeys.indexOf(prop) !== -1) {
-        collection[prop] = collect[prop];
-      }
-    }, collectKeys);
-
+    for (const name of count < 0 ? names.slice(count) : names.slice(0, count)) {
+      collection[name] = collect[name];
+    }
     return collection;
   }
 
-  if (size < 0) {
-    return slice(size, collect);
-  }
-
-  return slice([0, size], collect);
+  return fail('take', collect);
 }
 
 /**
@@ -1085,45 +1051,26 @@ export function take(size, collect) {
  * @returns {Function|Array|Object} Function if `collect` is undefined, otherwise filtered collection.
  */
 export function takeUntil(fn, collect) {
-  if (isUndefined(collect)) return collect => takeUntil(fn, collect);
+  if (arguments.length < 2) return collect => takeUntil(fn, collect);
 
-  let previous = null;
-  let items;
-  let callback = value => value === fn;
-
-  if (isFunction(fn)) {
-    callback = fn;
-  }
+  const stop = isFunction(fn) ? fn : value => value === fn;
 
   if (isArray(collect)) {
-    items = filter(item => {
-      if (previous !== false) {
-        previous = !callback(item);
-      }
-      return previous;
-    }, collect);
-  } else if (isObject(collect)) {
-    items = pipe(
-      collect,
-      keys(),
-      reduce([
-        (acc, key) => {
-          if (previous !== false) {
-            previous = !callback(collect[key]);
-          }
-
-          if (previous !== false) {
-            acc[key] = collect[key];
-          }
-
-          return acc;
-        },
-        {},
-      ])
-    );
+    let index = 0;
+    while (index < collect.length && !stop(collect[index])) index++;
+    return collect.slice(0, index);
   }
 
-  return items;
+  if (isObject(collect)) {
+    const collection = {};
+    for (const key of Object.keys(collect)) {
+      if (stop(collect[key])) break;
+      collection[key] = collect[key];
+    }
+    return collection;
+  }
+
+  return fail('takeUntil', collect);
 }
 
 /**
@@ -1133,30 +1080,24 @@ export function takeUntil(fn, collect) {
  * @returns {Array|Function} - The filtered collection of unique items.
  */
 export function unique(key, collect) {
-  if (isUndefined(collect)) {
-    if (isCollect(key)) return unique(void 0, key);
+  const count = arguments.length;
+  if (!count) return collect => unique(void 0, collect);
+  if (count === 1) {
+    if (isCollect(key) || isNil(key)) return unique(void 0, key);
     return collect => unique(key, collect);
   }
+  if (!isArray(collect)) return fail('unique', collect);
 
-  if (isUndefined(key)) {
-    return filter((element, index, self) => self.indexOf(element) === index, collect);
-  } else {
-    let collection = [];
-    const used = [];
-    each(item => {
-      let unique;
-      if (isFunction(key)) {
-        unique = key(item);
-      } else {
-        unique = item[key];
-      }
-      if (used.indexOf(unique) === -1) {
-        push(item, collection);
-        push(unique, used);
-      }
-    }, collect);
-    return collection;
-  }
+  if (isUndefined(key)) return [...new Set(collect)];
+
+  const used = new Set();
+  const read = isFunction(key) ? key : item => item[key];
+  return collect.filter(item => {
+    const id = read(item);
+    if (used.has(id)) return false;
+    used.add(id);
+    return true;
+  });
 }
 
 /**
@@ -1167,37 +1108,32 @@ export function unique(key, collect) {
  * @returns {Function|Array|Object} Function if `collect` is undefined, otherwise the original collection.
  */
 export function tap(fn, collect) {
-  if (isUndefined(collect)) return collect => tap(fn, collect);
+  if (arguments.length < 2) return collect => tap(fn, collect);
   fn(collect);
   return collect;
 }
 
 /**
- * Retrieves the value of a specified key from a collection.
+ * Retrieves the value of a specified key from a collection. A dot-separated key reaches into
+ * nested values, and stops with `undefined` or `null` as soon as a level is missing.
+ *
  * @param {string} key - The key whose value is to be retrieved.
  * @param {Object|Array} [collect] - The collection from which to retrieve the value.
  * @returns {*} - The value(s) corresponding to the key.
  */
 export function value(key, collect) {
-  if (isUndefined(collect)) return collect => value(key, collect);
+  if (arguments.length < 2) return collect => value(key, collect);
   if (isPromise(collect)) return collect.then(c => value(key, c));
+  if (isNil(collect)) return fail('value', collect);
 
-  if (isArray(collect)) {
-    const collection = [];
-    each(item => {
-      push(value(key, item), collection);
-    }, collect);
-    return collection;
-  }
+  if (isArray(collect)) return collect.map(item => value(key, item));
+
+  if (!isString(key) || key.indexOf('.') === -1) return collect[key];
 
   // Splits a dot-separated key and accesses the nested property in an object.
-  return reduce(
-    (o, p) => {
-      return o[p];
-    },
-    collect,
-    split('.', key)
-  );
+  const path = key.split('.');
+  for (let p = 0; p < path.length && !isNil(collect); p++) collect = collect[path[p]];
+  return collect;
 }
 
 /**
@@ -1207,10 +1143,11 @@ export function value(key, collect) {
  * @returns {Array} Returns an array of values.
  */
 export function values(collect) {
-  if (isUndefined(collect)) return collect => values(collect);
+  if (!arguments.length) return collect => values(collect);
   if (isArray(collect)) return collect;
   if (isObject(collect)) return Object.values(collect);
   if (isPromise(collect)) return collect.then(c => values(c));
+  return fail('values', collect);
 }
 
 /**
@@ -1222,7 +1159,9 @@ export function values(collect) {
  * @returns {void|Promise<void>}
  */
 export function walk(fn, stop, collect) {
-  if (isUndefined(collect)) {
+  const count = arguments.length;
+  if (count === 1) return collect => walk(fn, false, collect);
+  if (count === 2) {
     if (isBoolean(stop)) return collect => walk(fn, stop, collect);
     return walk(fn, false, stop);
   }
@@ -1261,4 +1200,5 @@ export function walk(fn, stop, collect) {
       length(object)
     );
   } else if (isPromise(collect)) return collect.then(c => walk(fn, stop, c));
+  return fail('walk', collect);
 }

@@ -176,7 +176,7 @@ export const RAW_WHITESPACE = ' ';
  * Regular expression patterns to validate email addresses.
  * @type {RegExp}
  */
-export const RGX_EMAIL = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/g;
+export const RGX_EMAIL = /^[\w.+-]+@([\w-]+\.)+[\w-]{2,}$/;
 
 /**
  * Regular expression to match non-whitespace.

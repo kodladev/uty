@@ -74,3 +74,24 @@ describe('clone', () => {
     expect(cloned).toEqual({ book: 9 });
   });
 });
+
+describe('pipe:steps', () => {
+  it('pipe:array:step', () => {
+    expect(pipe(1, [n => n + 1, n => n * 2])).toBe(4);
+  });
+
+  it('pipe:not:function', () => {
+    expect(() => pipe([1, 2], undefined)).toThrow(TypeError);
+    expect(() => pipe(Promise.resolve([1, 2]), 'x')).toThrow(TypeError);
+  });
+
+  it('pipe:promise:step', async () => {
+    expect(
+      await pipe(
+        1,
+        n => Promise.resolve(n + 1),
+        n => n * 2
+      )
+    ).toBe(4);
+  });
+});

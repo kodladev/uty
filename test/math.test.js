@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { pipe } from '../src/index.js';
 import { add, avg, divisible, size, sum } from '../src/math.js';
 
 describe('add', () => {
@@ -120,5 +121,38 @@ describe('sum', () => {
         ]
       )
     ).toEqual(9);
+  });
+});
+
+describe('divisible:curry', () => {
+  it('divisible:pipe', () => {
+    expect(divisible(2)([1, 2, 3, 4])).toEqual([2, 4]);
+    expect(pipe([1, 2, 3, 4, 5], divisible(2), add(10), sum)).toBe(26);
+  });
+
+  it('divisible:object', () => {
+    expect(divisible([2, 3], { a: 6, b: 4 })).toEqual({ a: 6 });
+  });
+});
+
+describe('sum:precision', () => {
+  it('sum:whole:exact', () => {
+    expect(sum([1234567890123456, 1])).toBe(1234567890123457);
+  });
+
+  it('sum:fraction', () => {
+    expect(sum([0.1, 0.2])).toBe(0.3);
+  });
+
+  it('sum:empty', () => {
+    expect(sum([])).toBe(0);
+  });
+
+  it('sum:object', () => {
+    expect(sum({ wood: 150, stone: 50 })).toBe(200);
+  });
+
+  it('sum:nested:key', () => {
+    expect(sum('detail.pages', [{ detail: { pages: 1 } }, { detail: { pages: 2 } }])).toBe(3);
   });
 });

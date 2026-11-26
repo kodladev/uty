@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   apply,
   chunk,
+  cls,
   diff,
+  dot,
   each,
   entries,
   every,
@@ -17,6 +19,7 @@ import {
   loop,
   map,
   merge,
+  mergeDeep,
   pluck,
   pop,
   prepend,
@@ -27,10 +30,12 @@ import {
   shift,
   slice,
   some,
+  sort,
   splice,
   split,
   take,
   takeUntil,
+  unique,
   value,
   values,
 } from '../src/collect.js';
@@ -917,7 +922,14 @@ describe('reduce', () => {
 
 describe('remove', () => {
   it('remove:array', () => {
-    expect(remove([0, 1], [1, 2, 3, 4])).toEqual([undefined, undefined, 3, 4]);
+    const data = [1, 2, 3, 4];
+    expect(remove([0, 1], data)).toEqual([3, 4]);
+    expect(data).toHaveLength(2);
+  });
+
+  it('remove:array:index', () => {
+    expect(remove(1, [1, 2, 3])).toEqual([1, 3]);
+    expect(remove([2, 0, 2, 9], ['a', 'b', 'c'])).toEqual(['b']);
   });
 
   it('remove:object', () => {
@@ -1191,5 +1203,339 @@ describe('values', () => {
 
   it('values:pipe', () => {
     expect(pipe(data, values)).toEqual(result);
+  });
+});
+
+describe('chunk:edge', () => {
+  it('chunk:empty', () => {
+    expect(chunk(2, [])).toEqual([]);
+    expect(chunk(2, {})).toEqual([]);
+  });
+
+  it('chunk:length:zero', () => {
+    expect(() => chunk(0, [1, 2])).toThrow(RangeError);
+  });
+});
+
+describe('dot', () => {
+  it('dot:nested', () => {
+    expect(dot('a.b', { a: { b: 1 } })).toBe(1);
+    expect(dot(['a', 'b'], { a: { b: 1 } })).toBe(1);
+  });
+
+  it('dot:default', () => {
+    expect(dot('a.b', 'none', { a: {} })).toBe('none');
+    expect(dot('a.b', { x: 1 }, { a: {} })).toEqual({ x: 1 });
+  });
+
+  it('dot:curry', () => {
+    expect(dot('a.b')({ a: { b: 1 } })).toBe(1);
+    expect(dot('a.b', 'none')({})).toBe('none');
+  });
+
+  it('dot:missing:data', () => {
+    expect(dot('a.b', undefined)).toBeUndefined();
+    expect(dot('a.b', null)).toBeUndefined();
+    expect(dot('a.b', 'none', undefined)).toBe('none');
+  });
+
+  it('dot:falsy:levels', () => {
+    expect(dot('a.length', { a: '' })).toBe(0);
+    expect(dot('a.b', { a: { b: 0 } })).toBe(0);
+  });
+
+  it('dot:index', () => {
+    expect(dot(0, ['first'])).toBe('first');
+  });
+});
+
+describe('has:curry', () => {
+  it('has:curry:object', () => {
+    expect(has('name')({ name: 'Ada' })).toBe(true);
+    expect(has('last')({ name: 'Ada' })).toBe(false);
+  });
+
+  it('has:curry:array', () => {
+    expect(pipe([1, 2, 3], has(2))).toBe(true);
+  });
+});
+
+describe('join:source', () => {
+  it('join:final:keeps:array', () => {
+    const data = [1, 2, 3];
+    expect(join(', ', ' and ', data)).toBe('1, 2 and 3');
+    expect(data).toEqual([1, 2, 3]);
+  });
+
+  it('join:final:single', () => {
+    expect(join(', ', ' and ', [5])).toBe('5');
+    expect(join(', ', ' and ', [])).toBe('');
+  });
+});
+
+describe('keyMap:object', () => {
+  it('keyMap:object:nested', () => {
+    expect(keyMap({ a: { b: 1 } })).toEqual({ a: { b: 1 }, 'a.b': 1 });
+  });
+});
+
+describe('last:number', () => {
+  it('last:number:array', () => {
+    const data = [1, 2, 3, 4];
+    expect(last(2, data)).toEqual([3, 4]);
+    expect(last(1, data)).toBe(4);
+    expect(data).toEqual([1, 2, 3, 4]);
+  });
+
+  it('last:number:object', () => {
+    const data = { a: 1, b: 2, c: 3 };
+    expect(last(2, data)).toEqual({ b: 2, c: 3 });
+    expect(data).toEqual({ a: 1, b: 2, c: 3 });
+  });
+
+  it('last:number:pipe', () => {
+    expect(pipe([1, 2, 3], last(2))).toEqual([2, 3]);
+  });
+});
+
+describe('merge:source', () => {
+  it('merge:object:new', () => {
+    const seed = { a: 1, b: 2 };
+    const data = { b: 9, c: 3 };
+    const result = merge(seed, data);
+    expect(result).toEqual({ a: 1, b: 2, c: 3 });
+    expect(result).not.toBe(data);
+    expect(seed).toEqual({ a: 1, b: 2 });
+    expect(data).toEqual({ b: 9, c: 3 });
+  });
+
+  it('merge:array:new', () => {
+    const seed = [3];
+    const data = [1, 2];
+    expect(merge(seed, data)).toEqual([1, 2, 3]);
+    expect(seed).toEqual([3]);
+    expect(data).toEqual([1, 2]);
+  });
+});
+
+describe('mergeDeep', () => {
+  it('mergeDeep:object', () => {
+    const seed = { b: { d: { e: 4 }, h: 5 }, i: 6 };
+    const data = { a: 1, b: { c: 2, d: { e: 3, f: [1, 2] } }, g: 'x' };
+    expect(mergeDeep(seed, data)).toEqual({
+      a: 1,
+      b: { c: 2, d: { e: 4, f: [1, 2] }, h: 5 },
+      g: 'x',
+      i: 6,
+    });
+    expect(seed).toEqual({ b: { d: { e: 4 }, h: 5 }, i: 6 });
+    expect(data).toEqual({ a: 1, b: { c: 2, d: { e: 3, f: [1, 2] } }, g: 'x' });
+  });
+
+  it('mergeDeep:array', () => {
+    expect(mergeDeep([3], [1, 2])).toEqual([1, 2, 3]);
+  });
+
+  it('mergeDeep:prototype', () => {
+    const seed = JSON.parse('{"__proto__":{"polluted":1},"a":{"__proto__":{"deep":1}}}');
+    const result = mergeDeep(seed, { a: {} });
+    expect({}.polluted).toBeUndefined();
+    expect({}.deep).toBeUndefined();
+    expect(result.polluted).toBeUndefined();
+  });
+
+  it('mergeDeep:pipe', () => {
+    expect(pipe({ a: { b: 1 } }, mergeDeep({ a: { c: 2 } }))).toEqual({ a: { b: 1, c: 2 } });
+  });
+});
+
+describe('pluck:edge', () => {
+  it('pluck:seed:falsy', () => {
+    const result = pluck('name', 'id', [
+      { id: 0, name: 'Zero' },
+      { id: 1, name: 'One' },
+    ]);
+    expect(result).toEqual({ 0: 'Zero', 1: 'One' });
+  });
+
+  it('pluck:missing:level', () => {
+    expect(pluck('a.b', [{ a: null }, { a: { b: 1 } }, {}])).toEqual([null, 1, undefined]);
+  });
+
+  it('pluck:wildcard:object', () => {
+    const result = pluck('roles.*', { roles: { first: { name: 'Editor' }, second: 'Admin' } });
+    expect(result).toEqual([[{ name: 'Editor' }, 'Admin']]);
+  });
+});
+
+describe('pop:object:source', () => {
+  it('pop:object:size:removes', () => {
+    const data = { a: 1, b: 2, c: 3 };
+    expect(pop(2, data)).toEqual({ b: 2, c: 3 });
+    expect(data).toEqual({ a: 1 });
+  });
+
+  it('pop:size:pipe', () => {
+    expect(pipe([1, 2, 3], pop(2))).toEqual([2, 3]);
+  });
+});
+
+describe('prepend:object:source', () => {
+  it('prepend:object:in:place', () => {
+    const data = { b: 2 };
+    const result = prepend('a', 1, data);
+    expect(result).toBe(data);
+    expect(Object.keys(data)).toEqual(['a', 'b']);
+  });
+});
+
+describe('reduce:seed', () => {
+  it('reduce:no:seed:strings', () => {
+    expect(reduce((a, b) => a + b, ['a', 'b'])).toBe('ab');
+  });
+
+  it('reduce:no:seed:empty', () => {
+    expect(reduce((a, b) => a + b, [])).toBeUndefined();
+    expect(reduce((a, b) => a + b, 0, [])).toBe(0);
+  });
+
+  it('reduce:pair', () => {
+    expect(reduce([(a, b) => a + b, 10], [1, 2])).toBe(13);
+    expect(reduce([(a, b) => a + b, 10])([1, 2])).toBe(13);
+  });
+});
+
+describe('shift:promise', () => {
+  it('shift:promise:count', async () => {
+    expect(await shift(2, Promise.resolve([1, 2, 3]))).toEqual([1, 2]);
+  });
+});
+
+describe('some:edge', () => {
+  it('some:stops:early', () => {
+    let calls = 0;
+    some(() => {
+      calls++;
+      return true;
+    }, [1, 2, 3]);
+    expect(calls).toBe(1);
+  });
+
+  it('some:null:items', () => {
+    expect(some('name', 'Ada', [null, { name: 'Ada' }])).toBe(true);
+  });
+
+  it('some:object:predicate', () => {
+    expect(some(value => value > 1, { a: 1, b: 2 })).toBe(true);
+    expect(some(value => value > 2, { a: 1, b: 2 })).toBe(false);
+  });
+});
+
+describe('sort', () => {
+  it('sort:numbers', () => {
+    expect(sort([10, 9, 1])).toEqual([1, 9, 10]);
+  });
+
+  it('sort:strings', () => {
+    expect(sort(['b', 'a'])).toEqual(['a', 'b']);
+  });
+
+  it('sort:fn:pipe', () => {
+    expect(
+      pipe(
+        [1, 3, 2],
+        sort((a, b) => b - a)
+      )
+    ).toEqual([3, 2, 1]);
+    expect(pipe([3, 1, 2], sort())).toEqual([1, 2, 3]);
+  });
+});
+
+describe('split:source', () => {
+  it('split:array:keeps:source', () => {
+    const data = [1, 2, 3, 4, 5, 6, 7];
+    expect(split(3, data)).toEqual([
+      [1, 2, 3],
+      [4, 5],
+      [6, 7],
+    ]);
+    expect(data).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('split:array:fewer:items', () => {
+    expect(split(3, [1, 2])).toEqual([[1], [2]]);
+  });
+});
+
+describe('takeUntil:edge', () => {
+  it('takeUntil:no:match', () => {
+    expect(takeUntil(9, [1, 2])).toEqual([1, 2]);
+  });
+
+  it('takeUntil:stops:early', () => {
+    let calls = 0;
+    takeUntil(
+      item => {
+        calls++;
+        return item === 2;
+      },
+      [1, 2, 3, 4]
+    );
+    expect(calls).toBe(2);
+  });
+});
+
+describe('unique', () => {
+  it('unique:array', () => {
+    expect(unique([1, 1, 2, 'a', 'a'])).toEqual([1, 2, 'a']);
+  });
+
+  it('unique:nan', () => {
+    expect(unique([NaN, NaN])).toEqual([NaN]);
+  });
+
+  it('unique:key', () => {
+    expect(unique('id', [{ id: 1, n: 'a' }, { id: 1, n: 'b' }, { id: 2 }])).toEqual([
+      { id: 1, n: 'a' },
+      { id: 2 },
+    ]);
+  });
+
+  it('unique:fn:pipe', () => {
+    expect(
+      pipe(
+        [1, 2, 3, 4],
+        unique(n => n % 2)
+      )
+    ).toEqual([1, 2]);
+    expect(pipe([1, 1], unique())).toEqual([1]);
+  });
+});
+
+describe('value:edge', () => {
+  it('value:missing:level', () => {
+    expect(value('a.b.c', { a: {} })).toBeUndefined();
+    expect(value('a.b', { a: null })).toBeNull();
+  });
+});
+
+describe('cls', () => {
+  it('cls:strings', () => {
+    expect(cls('a', 'b')).toBe('a b');
+    expect(cls('a', 1)).toBe('a 1');
+  });
+
+  it('cls:skips:empty', () => {
+    expect(cls('a', '', null, undefined, false, 'b')).toBe('a b');
+    expect(cls('a', [], {}, 'b')).toBe('a b');
+    expect(cls()).toBe('');
+  });
+
+  it('cls:object', () => {
+    expect(cls('a', { b: true, c: false, d: 1 })).toBe('a b d');
+  });
+
+  it('cls:array', () => {
+    expect(cls(['a', ['b', { c: true }]], 'd')).toBe('a b c d');
   });
 });

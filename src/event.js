@@ -5,26 +5,23 @@
   --------------------------------------------------------------------------------------------------
 */
 
-import { each, filter, push } from './collect.js';
-import { isNil } from './is.js';
-
 /**
  * Creates an event emitter object with methods to emit, listen to, and remove event listeners.
  * @returns {Object} - Event emitter object.
  */
 export function event() {
   return {
-    e: {}, // Object to store event listeners
+    e: Object.create(null), // Event listeners by event name
     /**
      * Emits an event with the specified name and passes optional arguments to the listeners.
+     * A listener added while the event is being emitted is called from the next emit on.
      * @param {string} event - The name of the event to emit.
      * @param  {...any} args - Optional arguments to pass to the event listeners.
      */
     emit(event, ...args) {
-      let callbacks = this.e[event] || [];
-      each((v, i) => {
-        callbacks[i](...args);
-      }, callbacks);
+      const callbacks = this.e[event];
+      if (!callbacks) return;
+      for (let i = 0, c = callbacks.length; i < c; i++) callbacks[i](...args);
     },
     /**
      * Registers an event listener for the specified event.
@@ -33,10 +30,11 @@ export function event() {
      * @returns {Function} - Function to remove the event listener.
      */
     on(event, callback) {
-      let $ = this;
-      (!isNil($.e[event]) && push(callback, $.e[event])) || ($.e[event] = [callback]);
+      const $ = this;
+      // A new array on every change keeps an emit in progress on the list it started with
+      $.e[event] = ($.e[event] || []).concat(callback);
       return () => {
-        $.e[event] = !isNil($.e[event]) && filter(i => callback !== i, $.e[event]);
+        if ($.e[event]) $.e[event] = $.e[event].filter(i => callback !== i);
       };
     },
     /**

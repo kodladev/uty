@@ -46,7 +46,7 @@ add(5, { a: 1, b: 2, c: 3 });
 
 ### `avg`
 
-Calculates the average of a collection. Optionally averages the values of a specified key or the result of a function applied to each element.
+Calculates the average of a collection. Optionally averages the values of a specified key or the result of a function applied to each element. An object is averaged over its values.
 
 **Example**
 
@@ -79,6 +79,11 @@ pipe([1, 2, 3, 4], add(10), avg);
 //=> 12.5
 ```
 
+```js
+avg({ a: 1, b: 2 });
+//=> 1.5
+```
+
 ---
 
 ### `divisible`
@@ -106,7 +111,7 @@ divisible(3, { a: 1, b: 3, c: 6, d: 9 });
 
 ### `size`
 
-Returns the size of a collection, such as an array, object, string, Map, Set, or Promise. For arrays and strings, it returns the length. For objects, it returns the number of enumerable properties. For Map and Set objects, it returns the number of elements. For Promise objects, it waits for the promise to resolve and returns the size of the resolved value.
+Returns the size of a collection, such as an array, object, string, Map, Set, or Promise. For arrays and strings, it returns the length. For objects, it returns the number of enumerable properties. For Map and Set objects, it returns the number of elements. For Promise objects, it waits for the promise to resolve and returns the size of the resolved value. For any other value, it returns `0`.
 
 **Example**
 
@@ -142,13 +147,23 @@ await size(Promise.resolve([1, 2, 3])); //=> 3
 
 ### `sum`
 
-Calculates the sum of a collection. Optionally sums the values of a specified key or the result of a function applied to each element.
+Calculates the sum of a collection. Optionally sums the values of a specified key or the result of a function applied to each element. An object is summed over its values. Whole-number totals are exact; a total with a fraction is rounded to 12 significant digits.
 
 **Example**
 
 ```js
 sum([1, 2, 3, 4]);
 //=> 10
+```
+
+```js
+sum({ wood: 150, stone: 50, gold: 10 });
+//=> 210
+```
+
+```js
+sum([0.1, 0.2]);
+//=> 0.3
 ```
 
 ```js

@@ -5,7 +5,6 @@
   --------------------------------------------------------------------------------------------------
 */
 
-import { keys } from './collect.js';
 import {
   MAX_SAFE_INTEGER,
   RAW_ASYNC,
@@ -24,7 +23,6 @@ import {
   RGX_EMAIL,
 } from './define.js';
 import { size } from './math.js';
-import { toStringify } from './to.js';
 
 /**
  * Checks if the value is an array.
@@ -202,7 +200,9 @@ export function isEmpty(value) {
 }
 
 /**
- * Checks if two values are equal.
+ * Checks if two values are equal. Arrays, objects, class instances, dates, regular expressions,
+ * errors, maps and sets are compared by content; functions, symbols, promises and weak
+ * collections are equal only to themselves.
  * @template K
  * @template D
  * @param {K} test1 - First value to compare.
@@ -216,10 +216,15 @@ export function isEmpty(value) {
  */
 export function isEqual(test1, test2) {
   if (test1 === test2) return true;
-  if (typeof test1 !== typeof test2 || test1 !== Object(test1) || !test1 || !test2) return false;
-  if (isArray(test1) && isArray(test2)) {
-    const len = size(test1);
-    if (len !== size(test2)) return false;
+  // NaN is the only value that differs from itself
+  if (test1 !== test1 && test2 !== test2) return true;
+  // prettier-ignore
+  if (!test1 || !test2 || typeof test1 !== RAW_OBJECT || typeof test2 !== RAW_OBJECT) return false;
+
+  if (isArray(test1)) {
+    if (!isArray(test2)) return false;
+    const len = test1.length;
+    if (len !== test2.length) return false;
 
     for (let i = 0; i < len; i++) {
       if (!isEqual(test1[i], test2[i])) return false;
@@ -227,21 +232,48 @@ export function isEqual(test1, test2) {
 
     return true;
   }
-  if (isObject(test1) && isObject(test2)) {
-    const test1Keys = keys(test1);
-    const len = size(test1Keys);
-    if (len !== size(keys(test2))) return false;
-    for (let i = 0; i < len; i++) {
-      const key = test1Keys[i];
-      // prettier-ignore
-      if (!(
-        Object.prototype.hasOwnProperty.call(test2, key) &&
-        isEqual(test1[key], test2[key])
-        )) return false;
+
+  const proto = Object.getPrototypeOf(test1);
+  if (proto !== Object.getPrototypeOf(test2)) return false;
+
+  if (proto !== null && proto !== Object.prototype) {
+    // prettier-ignore
+    if (test1 instanceof Date || test1 instanceof String || test1 instanceof Number || test1 instanceof Boolean) {
+      return isEqual(test1.valueOf(), test2.valueOf());
     }
-    return true;
+    if (test1 instanceof RegExp) return `${test1}` === `${test2}`;
+    if (test1 instanceof Error) return test1.name === test2.name && test1.message === test2.message;
+    if (test1 instanceof Map) {
+      if (test1.size !== test2.size) return false;
+      for (const [key, value] of test1) {
+        if (!test2.has(key) || !isEqual(value, test2.get(key))) return false;
+      }
+      return true;
+    }
+    if (test1 instanceof Set) {
+      if (test1.size !== test2.size) return false;
+      for (const value of test1) {
+        if (!test2.has(value)) return false;
+      }
+      return true;
+    }
+    // Nothing inside these can be read, so only the same instance is equal
+    // prettier-ignore
+    if (isPromise(test1) || test1 instanceof WeakMap || test1 instanceof WeakSet) return false;
   }
-  return toStringify(test1) === toStringify(test2);
+
+  const test1Keys = Object.keys(test1);
+  const len = test1Keys.length;
+  if (len !== Object.keys(test2).length) return false;
+  for (let i = 0; i < len; i++) {
+    const key = test1Keys[i];
+    // prettier-ignore
+    if (!(
+      Object.prototype.hasOwnProperty.call(test2, key) &&
+      isEqual(test1[key], test2[key])
+      )) return false;
+  }
+  return true;
 }
 
 /**
@@ -332,17 +364,17 @@ export function isIterable(value) {
 }
 
 /**
- * Checks if the value is a key in the source.
+ * Checks if the value is an own key of the source object.
  * @param {string|number} key - Check the key.
  * @param {object} source - Source object.
  * @returns {boolean} Return true if the key is a property; otherwise, false.
  */
 export function isKey(key, source) {
-  if (!isObject(source) || !isString(key) || !isNumber(key)) {
+  if (!isObject(source) || !(isString(key) || isNumber(key))) {
     return false;
   }
 
-  return !isUndefined(source[key]);
+  return Object.prototype.hasOwnProperty.call(source, key);
 }
 
 /**
@@ -409,14 +441,17 @@ export function isNumber(value) {
 }
 
 /**
- * Checks if the value is a real object.
+ * Checks if the value is a plain object: one written as a literal, parsed from JSON, or made
+ * with `Object.create`. Arrays, class instances and built-ins such as `Date` or `Map` are not.
  * @template K
  * @param {K} value - Check the value.
  * @returns {value is import('./type.js').Include<K, import('./type.js').$object>}
  * Returns true for objects, false for everything else.
  */
 export function isObject(value) {
-  return !!value && typeof value === RAW_OBJECT && value.constructor === Object;
+  if (!value || typeof value !== RAW_OBJECT) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || proto.constructor === Object;
 }
 
 /**
@@ -439,7 +474,7 @@ export function isObjects(value) {
  */
 export function isOdd(value) {
   if (!isNumber(value)) return false;
-  return value % 2 === 1;
+  return Math.abs(value % 2) === 1;
 }
 
 /**

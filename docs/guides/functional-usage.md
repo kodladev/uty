@@ -110,4 +110,32 @@ total([6, 7, 8, 9, 10]);
 //=> 54
 ```
 
+## Leaving out the data
+
+Functions take their data last. A function returns a waiting function only when the data argument is left out. This is decided by how many arguments you pass, not by whether a value is `undefined`.
+
+```js
+const double = map(x => x * 2);
+
+double([1, 2]);
+//=> [2, 4]
+```
+
+Passing data a function cannot work with (`undefined`, `null`, a number where a collection is expected, ...) throws a `TypeError` that names the function.
+
+```js
+map(x => x * 2, undefined);
+//=> TypeError: uty: map cannot work with undefined
+```
+
+Inside a Promise chain, the same mistake becomes a rejected Promise.
+
+```js
+await map(x => x * 2, Promise.resolve(null));
+//=> Rejects with TypeError: uty: map cannot work with null
+```
+
+> [!NOTE]
+> A few functions accept anything on purpose: `dot` returns the default, `size` returns `0`, `tap`, `toArray`, `toJson`, `toString` and `toStringify` work with any value, and the `is*` checks accept any value.
+
 Uty libraries provide an enjoyable way to understand and implement functional programming.

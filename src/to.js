@@ -6,7 +6,7 @@
 */
 
 import { values } from './collect.js';
-import { isArray, isAsyncIterable, isCollect, isObject, isPromise, isUndefined } from './is.js';
+import { isArray, isAsyncIterable, isCollect, isObject, isPromise } from './is.js';
 
 /**
  * Converts a value to an array.
@@ -14,7 +14,7 @@ import { isArray, isAsyncIterable, isCollect, isObject, isPromise, isUndefined }
  * @returns {Array|Promise<Array>|function} The resulting array or a partially applied function.
  */
 export function toArray(collect) {
-  if (isUndefined(collect)) return collect => toArray(collect);
+  if (!arguments.length) return collect => toArray(collect);
   if (isArray(collect)) {
     return Array.from(collect);
   } else if (isAsyncIterable(collect)) {
@@ -67,7 +67,7 @@ export function toAsync(iter) {
  * @returns {string|function} - The resulting JSON string or a partially applied function.
  */
 export function toJson(collect) {
-  if (isUndefined(collect)) return collect => toJson(collect);
+  if (!arguments.length) return collect => toJson(collect);
 
   if (isObject(collect)) {
     return JSON.stringify(collect);
@@ -84,7 +84,7 @@ export function toJson(collect) {
  * @returns {string|function} - Returns the string representation of the collection.
  */
 export function toString(collect) {
-  if (isUndefined(collect)) return collect => toString(collect);
+  if (!arguments.length) return collect => toString(collect);
   if (isCollect(collect)) return collect.toString();
   return `${collect}`;
 }
@@ -95,7 +95,7 @@ export function toString(collect) {
  * @returns {string|function} Returns the string representation of the collection.
  */
 export function toStringify(collect) {
-  if (isUndefined(collect)) return collect => toStringify(collect);
+  if (!arguments.length) return collect => toStringify(collect);
   if (isObject(collect)) return JSON.stringify(collect);
   return `${collect}`;
 }

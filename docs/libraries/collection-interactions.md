@@ -11,7 +11,7 @@ import { chunk, diff } from 'uty/collect';
 ## Functions
 
 > [!WARNING]
-> To prevent mutation, you can use the helper functions `clone` and for sequential operations, `pipe`.
+> `pop`, `prepend`, `push`, `remove`, `reverse`, `shift`, `sort` and `splice` change the collection they are given, like the JavaScript methods they are named after. Every other function leaves its input untouched and returns a new value. To keep the original, pass a copy made with `clone`.
 
 > [!TIP]
 > For more information on these functions, you can also refer to the `Functional Usage` guide.
@@ -66,6 +66,14 @@ chunk(2, { name: 'Albert', last: 'Einstein', age: '∞' });
 //=> [{ name: 'Albert', last: 'Einstein' }, { age: '∞' }]
 ```
 
+```js
+chunk(3, []);
+//=> []
+```
+
+> [!NOTE]
+> A length of zero or less throws a `RangeError`.
+
 ---
 
 ### `diff`
@@ -113,7 +121,7 @@ compare([1, 2, 3, 4, 12, 15]); //=> [12, 15]
 
 ### `dot`
 
-Gets a value from an object using dot notation. You can also set a default value if the key is not found.
+Gets a value from an object using dot notation. You can also set a default value if the key is not found. Empty values such as `''` or `0` along the way are walked through, and data that is `null` or `undefined` gives the default instead of throwing.
 
 **Example**
 
@@ -128,6 +136,16 @@ dot('list.name', data); //=> 'Thomas'
 dot('list.surname', 'Edison', data); //=> ''
 dot('list.age', 42, data); // => 42
 dot('list.age', data); // => undefined
+dot('list.surname.length', data); //=> 0
+dot('list.age', 42, null); //=> 42
+```
+
+> [!NOTE]
+> With two arguments, a string, number or boolean in second place is the default and you get a function that waits for the data. Anything else in second place, `null` and `undefined` included, is the data.
+
+```js
+const age = dot('list.age', 42);
+age(data); //=> 42
 ```
 
 ---
@@ -180,8 +198,10 @@ await each(async item => {
 ```js
 let total = 0;
 const addTotal = each(item => (total += item));
-addTotal([1, 2]); //=> 3
-addTotal([3, 4]); //=> 10
+addTotal([1, 2]);
+total; //=> 3
+addTotal([3, 4]);
+total; //=> 10
 ```
 
 ---
@@ -423,7 +443,7 @@ join(' ', { name: 'Marie', last: 'Curie' });
 //=> Marie Curie
 ```
 
-> The `join` function concatenates elements of an array or values of an object using the specified separators. For arrays, the first separator is used between elements, and the second optional separator is used before the last element. For objects, it concatenates the values using the first separator.
+> The `join` function concatenates elements of an array or values of an object using the specified separators. For arrays, the first separator is used between elements, and the second optional separator is used before the last element. For objects, it concatenates the values using the first separator. It always returns a string and leaves the collection untouched.
 
 ---
 
@@ -483,7 +503,7 @@ await keys(
 
 ### `last`
 
-Retrieves the last element in a collection based on a specified function or default criteria.
+Retrieves the last element in a collection, the last element that passes a function, or the last `n` elements when a number is given. The collection is left untouched.
 
 **Example**
 
@@ -497,6 +517,7 @@ last(item => item < 2, [1, 2, 3]); //=> 1
 
 ```js
 last(2, [1, 2, 3]); //=> [2, 3]
+last(1, [1, 2, 3]); //=> 3
 ```
 
 ```js
@@ -535,7 +556,7 @@ await lessThanTwoLast(data); //=> 1
 
 ### `loop`
 
-Iterates over a collection of a specified length, asynchronously or synchronously, and applies a function to each index.
+Calls a function a given number of times, passing the index each time. When the function returns a value, the loop stops and returns it.
 
 **Example**
 
@@ -545,35 +566,20 @@ let total = 0;
 
 loop(index => {
   total += data[index];
-}, data);
+}, 3);
 
 console.log(total); //=> 6
 ```
 
 ```js
-const data = [1, 2, 3];
-let total = 0;
-
-await loop(async index => {
-  return new Promise(resolve => {
-    total += data[index];
-    resolve(true);
-  });
-}, data);
-
-console.log(total); //=> 6
+loop(index => {
+  if (index === 2) return 'stopped at 2';
+}, 5);
+//=> 'stopped at 2'
 ```
 
-```js
-const data = Promise.resolve([1, 2, 3]);
-let total = 0;
-
-await loop(async index => {
-  total++;
-}, data);
-
-console.log(total); //=> 3
-```
+> [!TIP]
+> To go over a collection, a Promise, or with an async function, use `iterate` or `walk`.
 
 ---
 
@@ -603,7 +609,7 @@ add10(data2); //=> [15, 16, 17, 18]
 
 ### `merge`
 
-Takes two collections and combines them into a single collection. For arrays, it concatenates the elements of both arrays, and for objects, it merges the key-value pairs of both objects. If there are common keys in the objects, the values from the second object overwrite the values from the first object.
+Takes two collections and combines them into a new collection. For arrays, it concatenates the elements of both arrays, and for objects, it merges the key-value pairs of both objects. If both objects hold the same key, the value from the first argument wins. Neither collection is changed.
 
 **Example**
 
@@ -618,12 +624,22 @@ merge({ age: 32 }, { name: 'Nikola', last: 'Tesla' });
 ```
 
 ```js
+merge({ age: 32 }, { name: 'Nikola', age: 40 });
+//=> { name: 'Nikola', age: 32 }
+```
+
+```js
 await merge(Promise.resolve(['strawberry']), Promise.resolve(['blackberry']));
 //=> ['blackberry', 'strawberry']
 ```
 
 > [!TIP]
-> If you need to perform a deep merge, you can use the `mergeDeep` function.
+> If you need to perform a deep merge, you can use the `mergeDeep` function. It merges nested objects key by key, follows the same rules (the first argument wins, neither collection is changed) and skips a `__proto__` key.
+
+```js
+mergeDeep({ user: { age: 32 } }, { user: { name: 'Nikola', age: 40 }, active: true });
+//=> { user: { name: 'Nikola', age: 32 }, active: true }
+```
 
 ---
 
@@ -646,7 +662,7 @@ pluck('name', [
 //=> ['Nikola', 'Tesla']
 ```
 
-You can specify how the resulting collection should be keyed.
+You can specify how the resulting collection should be keyed. Items whose key value is `null` or `undefined` are left out; `0` and `''` are kept.
 
 ```js
 pluck('name', 'subs.id', [
@@ -656,7 +672,12 @@ pluck('name', 'subs.id', [
 //=> {17: 'Thomas', 18: 'Edison'}
 ```
 
-Use dot notation to select nested keys.
+```js
+pluck('name', 'id', [{ id: 0, name: 'Ada' }, { id: '', name: 'Alan' }, { name: 'Grace' }]);
+//=> { 0: 'Ada', '': 'Alan' }
+```
+
+Use dot notation to select nested keys. When a nested level is missing, the result for that item is `undefined` or `null` instead of an error.
 
 ```js
 pluck('roles.0.name', {
@@ -672,6 +693,11 @@ pluck('roles.0.name', [
   { id: 2, roles: [{ name: 'Super User' }, { name: 'Writer' }] },
 ]);
 //=> ['Editor', 'Super User']
+```
+
+```js
+pluck('profile.city', [{ profile: null }, {}]);
+//=> [null, undefined]
 ```
 
 Use the dot notation along with the asterisk (`*`) character to retrieve all values for a specific key within a list of objects.
@@ -693,7 +719,10 @@ pluck('roles.*.name', [
 
 ### `pop`
 
-Returns the last item or the last specified number of items from a collection.
+Removes and returns the last item or the last specified number of items from a collection.
+
+> [!WARNING]
+> This function changes the collection it is given, in place. Pass a copy made with `clone` to keep the original.
 
 **Example**
 
@@ -717,11 +746,23 @@ pop(2, { name: 'Ali', last: 'Kuşçu', birth: '1403' });
 //=> { last: 'Kuşçu', birth: '1403' }
 ```
 
+```js
+const data = [1, 2, 3, 4, 5];
+const popTwo = pop(2);
+popTwo(data); //=> [4, 5]
+//=> data = [1, 2, 3]
+```
+
 ---
 
 ### `prepend`
 
 Adds an element to the beginning of a collection.
+
+> [!WARNING]
+> This function changes the collection it is given, in place. Pass a copy made with `clone` to keep the original.
+
+**Example**
 
 ```js
 prepend(0, [1, 2, 3, 4, 5]);
@@ -745,13 +786,16 @@ prepend('?', 'category=1&book=5');
 //=> ?category=1&book=5
 ```
 
-> The `prepend` function adds an element or a set of elements to the beginning of a collection, whether it's an array or an object. If the collection is an array, the new element(s) will be inserted at the beginning of the array. If the collection is an object, a new key-value pair will be added to the object, and existing key-value pairs will be shifted to the right.
+> The `prepend` function adds an element or a set of elements to the beginning of a collection, whether it's an array or an object. If the collection is an array, the new element(s) will be inserted at the beginning of the array. If the collection is an object, a new key-value pair will be added to the object, and existing key-value pairs will be shifted to the right. A string cannot change, so for a string a new string is returned.
 
 ---
 
 ### `push`
 
 Adds an element to the end of an array or updates a key-value pair in an object.
+
+> [!WARNING]
+> This function changes the collection it is given, in place. Pass a copy made with `clone` to keep the original.
 
 **Example**
 
@@ -790,7 +834,7 @@ pushed(data);
 
 ### `reduce`
 
-Applies a function to each element of a collection, from left to right, to reduce the collection to a single value.
+Applies a function to each element of a collection, from left to right, to reduce the collection to a single value. Without a seed, the first element starts the reduction, like `Array.prototype.reduce`; an empty collection without a seed gives `undefined`.
 
 **Example**
 
@@ -815,25 +859,30 @@ const total = reduce(sum);
 total([1, 2, 3, 4]); //=>10
 ```
 
+```js
+reduce(sum, []); //=> undefined
+reduce(sum, 0, []); //=> 0
+```
+
 ---
 
 ### `remove`
 
-Removes specified keys from a collection.
+Removes specified keys from a collection. In an array the items at the given indexes are taken out and the rest move up.
+
+> [!WARNING]
+> This function changes the collection it is given, in place. Pass a copy made with `clone` to keep the original.
 
 **Example**
 
 ```js
 remove([0, 1], [1, 2, 3, 4]);
-//=> [empty × 2, 3, 4]
+//=> [3, 4]
 ```
 
-> [!TIP]
-> If you want to remove the indices after the keys have been removed, you can use the `flat` function.
-
 ```js
-flat(remove([0, 1], [1, 2, 3, 4]));
-//=> [3, 4]
+remove(1, ['a', 'b', 'c']);
+//=> ['a', 'c']
 ```
 
 ```js
@@ -870,6 +919,9 @@ remove(['subs', 'pages', 'roles'], {
 
 Reverses the order of the elements in an array.
 
+> [!WARNING]
+> This function changes the collection it is given, in place. Pass a copy made with `clone` to keep the original.
+
 **Example**
 
 ```js
@@ -881,6 +933,11 @@ reverse([1, 2, 3, 4, 5]); //=> [5, 4, 3, 2, 1]
 ### `shift`
 
 Removes the first element from a collection and returns that element. Additionally, you can specify the number of elements to remove, and it will return the removed elements as a new collection.
+
+> [!WARNING]
+> This function changes the collection it is given, in place. Pass a copy made with `clone` to keep the original.
+
+**Example**
 
 ```js
 const a = [1, 2, 3, 4, 5];
@@ -916,7 +973,7 @@ slice(4, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 ```
 
 ```js
-slice([4, 2], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+slice([4, 6], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 //=> [5, 6]
 ```
 
@@ -971,6 +1028,9 @@ some(item => item > 0, {
 
 A flexible utility for sorting arrays. Supports custom comparator functions, auto-detection of numeric sorting, and partial application to different collections.
 
+> [!WARNING]
+> This function changes the collection it is given, in place. Pass a copy made with `clone` to keep the original.
+
 **Example**
 
 ```js
@@ -994,6 +1054,9 @@ sort(['10', '2', '30', '1']); //=> ['1', '10', '2', '30']
 ### `splice`
 
 Modifies the contents of an array by removing or replacing existing elements and/or adding new elements in place.
+
+> [!WARNING]
+> This function changes the collection it is given, in place. Pass a copy made with `clone` to keep the original.
 
 **Example**
 
@@ -1028,7 +1091,7 @@ const result = await splice(2, data);
 
 ### `split`
 
-Divides a collection into groups based on a given expression or number.
+Divides a string by a delimiter, or an array into a given number of groups. Groups are filled as evenly as possible, empty groups are left out, and the array is left untouched.
 
 **Example**
 
@@ -1040,6 +1103,16 @@ split('&', 'id=1&book=5');
 ```js
 split(3, [1, 2, 3, 4, 5]);
 //=> [[1, 2], [3, 4], [5]]
+```
+
+```js
+split(3, [1, 2, 3, 4, 5, 6, 7]);
+//=> [[1, 2, 3], [4, 5], [6, 7]]
+```
+
+```js
+split(3, [1]);
+//=> [[1]]
 ```
 
 ---
@@ -1109,6 +1182,10 @@ unique([1, 2, 2, 3, 1]); //=> [1, 2, 3]
 ```
 
 ```js
+unique([NaN, NaN]); //=> [NaN]
+```
+
+```js
 const users = [
   { id: 1, name: 'Aziz' },
   { id: 2, name: 'Sancar' },
@@ -1138,7 +1215,7 @@ uniqueById(users);
 
 ### `value`
 
-Retrieves all values for a specified key.
+Retrieves all values for a specified key. A dot-separated key reaches into nested values and stops with `undefined` or `null` as soon as a level is missing.
 
 **Example**
 
@@ -1158,6 +1235,11 @@ value('roles.1.name', {
   roles: [{ name: 'Editor' }, { name: 'Admin' }],
 });
 //=> Admin
+```
+
+```js
+value('profile.city', { profile: null });
+//=> null
 ```
 
 ---

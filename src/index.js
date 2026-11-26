@@ -5,25 +5,26 @@
   --------------------------------------------------------------------------------------------------
 */
 
-import { reduce } from './collect.js';
 import { isArray, isFunction, isPromise } from './is.js';
 
 /**
  * It's a structure that connects functions by passing the output of one function as the arguments
- * to another function.
+ * to another function. A step can also be an array of functions. When the data, or the result of
+ * any step, is a Promise, the remaining steps wait for it and the result is a Promise.
  *
  * @param {Array|Object|Promise|Function} collect - The collection to pipe.
  * @param {...Function} fns - The functions to pipe the collection through.
  * @returns {*} - Returns the result of piping the collection through the functions.
  */
 export function pipe(collect, ...fns) {
-  if (isFunction(collect)) return c => pipe(c, [collect, ...fns]);
-  return reduce(run, collect, fns);
-}
-
-function run(a, f) {
-  if (isFunction(f)) return isPromise(a) ? a.then(f) : f(a);
-  if (isArray(f)) return pipe(a, ...f);
+  if (isFunction(collect)) return c => pipe(c, collect, ...fns);
+  for (let i = 0; i < fns.length; i++) {
+    const fn = fns[i];
+    if (isArray(fn)) collect = pipe(collect, ...fn);
+    else if (!isFunction(fn)) throw new TypeError('uty: pipe expects functions as its steps');
+    else collect = isPromise(collect) ? collect.then(fn) : fn(collect);
+  }
+  return collect;
 }
 
 /**

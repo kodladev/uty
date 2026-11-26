@@ -5,7 +5,8 @@
   --------------------------------------------------------------------------------------------------
 */
 
-import { every, filter, keys, map, pluck, reduce } from './collect.js';
+import { every, filter, keys, map, pluck } from './collect.js';
+import { fail } from './fail.js';
 import {
   isArray,
   isArrayLike,
@@ -26,9 +27,10 @@ import {
  * @returns {Function|number|string|Array} The sum of the values, or a mapped collection.
  */
 export function add(a, b) {
-  if (isUndefined(b)) return b => add(a, b);
+  if (arguments.length < 2) return b => add(a, b);
   if ((isNumber(a) && isNumber(b)) || (isString(a) && isString(b))) return a + b;
-  if (isCollect(b)) return map(add(a), b);
+  if (isCollect(b)) return map(item => add(a, item), b);
+  return fail('add', b);
 }
 
 /**
@@ -40,9 +42,10 @@ export function add(a, b) {
  * @returns {number} The average of the collection.
  */
 export function avg(key, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(key)) return collect => avg(collect);
-    else if (isString(key) || isFunction(key)) return collect => avg(key, collect);
+  const count = arguments.length;
+  if (!count) return collect => avg(void 0, collect);
+  if (count === 1) {
+    if (isString(key) || isFunction(key)) return collect => avg(key, collect);
     return avg(void 0, key);
   }
 
@@ -57,13 +60,12 @@ export function avg(key, collect) {
  * @returns {Array|Object} The filtered collection.
  */
 export function divisible(number, collect) {
-  if (isUndefined(collect)) return collect => divisible(collect);
-  if (isNumber(number) && isCollect(collect)) {
-    return filter(item => isDivisible(item, number), collect);
-  }
-  if (isArray(number) && isCollect(collect)) {
+  if (arguments.length < 2) return collect => divisible(number, collect);
+  if (!isCollect(collect)) return fail('divisible', collect);
+  if (isArray(number)) {
     return filter(item => every(num => isDivisible(item, num), number), collect);
   }
+  return filter(item => isDivisible(item, number), collect);
 }
 
 /**
@@ -73,7 +75,7 @@ export function divisible(number, collect) {
  * @returns {number} Returns the size of the collection.
  */
 export function size(collect) {
-  if (isUndefined(collect)) return collect => size(collect);
+  if (!arguments.length) return collect => size(collect);
   if (isArrayLike(collect)) return length(collect);
   if (isObject(collect)) return length(keys(collect));
   if (collect?.size) return collect.size;
@@ -94,30 +96,35 @@ export function length(collect) {
 
 /**
  * Calculates the sum of a collection. Optionally sums the values of a specified key or the result
- * of a function applied to each element.
+ * of a function applied to each element. Whole totals are exact; a total with a fraction is
+ * rounded to 12 significant digits.
  *
  * @param {string|Function} [key] - The key to pluck or the function to map over the collection.
- * @param {Array} [collect] - The collection to sum.
+ * @param {Array|Object} [collect] - The collection to sum.
  * @returns {number} The sum of the collection.
  */
 export function sum(key, collect) {
-  if (isUndefined(collect)) {
-    if (isUndefined(key)) return collect => sum(collect);
-    else if (isString(key) || isFunction(key)) return collect => sum(key, collect);
+  const count = arguments.length;
+  if (!count) return collect => sum(void 0, collect);
+  if (count === 1) {
+    if (isString(key) || isFunction(key)) return collect => sum(key, collect);
     return sum(void 0, key);
   }
 
+  const items = isArray(collect) ? collect : isObject(collect) ? Object.values(collect) : null;
+  if (!items) return fail('sum', collect);
+
   let total = 0;
 
-  if (isArray(collect)) {
-    // Sum the collection directly if no key is provided
-    if (isUndefined(key)) total = reduce(add, collect);
-    // Pluck the values of the specified key and sum them
-    else if (isString(key)) total = sum(pluck(key, collect));
-    // Map the function over the collection and sum the results
-    else if (isFunction(key)) total = sum(map(key, collect));
+  if (isFunction(key)) {
+    // Sum the results of the function applied to each element
+    for (let i = 0; i < items.length; i++) total += key(items[i], i);
+  } else {
+    // Sum the collection directly, or the values plucked for the specified key
+    const numbers = isUndefined(key) ? items : pluck(key, void 0, items);
+    for (let i = 0; i < numbers.length; i++) total += numbers[i];
   }
 
-  // Return the sum with precision
-  return parseFloat(total.toPrecision(12));
+  // Whole numbers are exact; fractions are rounded to hide floating point noise (0.1 + 0.2)
+  return Number.isInteger(total) ? total : parseFloat(total.toPrecision(12));
 }

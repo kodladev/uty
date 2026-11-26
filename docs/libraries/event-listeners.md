@@ -5,7 +5,7 @@ A small and customizable event listener.
 ## Import
 
 ```js
-import { on, emit } from 'uty/event';
+import { on, emit, off } from 'uty/event';
 ```
 
 ## Global Listeners
@@ -26,6 +26,9 @@ emit('tick', 5);
 //=> 5
 ```
 
+> [!NOTE]
+> A listener added while an event is being emitted is called from the next emit on.
+
 ### Removing a Listener
 
 The `on` function returns an `unbind` function that can be used to remove a specific listener when needed.
@@ -44,6 +47,20 @@ tickOff();
 emit('tick', 5);
 //=> The tick listener is not triggered.
 //=> Nothing is logged.
+```
+
+To remove every listener of an event at once, use `off`. An `unbind` function from before can still be called afterwards without affecting listeners added later.
+
+```js
+const tickOff = on('tick', () => console.log('old'));
+
+off('tick');
+tickOff();
+
+on('tick', () => console.log('new'));
+
+emit('tick');
+//=> new
 ```
 
 ### Triggering a Listener

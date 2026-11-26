@@ -193,7 +193,7 @@ if (isClient()) {
 
 ### `isCollect`
 
-Checks whether the specified value is a collection or not. We use the term 'collection' to refer to both array and object types, grouping them under a single category. If the value is a collection, it returns `true`; otherwise, it returns `false`.
+Checks whether the specified value is a collection or not. We use the term 'collection' to refer to arrays and plain objects (see `isObject`), grouping them under a single category. If the value is a collection, it returns `true`; otherwise, it returns `false`.
 
 **Example**
 
@@ -207,6 +207,10 @@ isCollect({
   lastname: 'Einstein',
 });
 //=> true
+```
+
+```js
+isCollect(new Map()); //=> false
 ```
 
 ---
@@ -269,6 +273,26 @@ isElement(document.createElement('div')); //=> true
 
 ```js
 isElement(document.createTextNode('Hi there and greetings!')); //=> false
+```
+
+---
+
+### `isEmail`
+
+Checks if a string looks like an email address.
+
+**Example**
+
+```js
+isEmail('someone@example.com'); //=> true
+```
+
+```js
+isEmail('first.last+tag@mail.example.com'); //=> true
+```
+
+```js
+isEmail('someone@example'); //=> false
 ```
 
 ---
@@ -353,7 +377,7 @@ isEmpty(undefined); //=> true
 
 ### `isEqual`
 
-Checks if the two specified values are equal. It compares the values deeply, recursively comparing each property of objects. If the values are equal, it returns `true`; otherwise, it returns `false`.
+Checks if the two specified values are equal. It compares the values deeply. Arrays, plain objects, class instances (same prototype, same own keys), `Date`, `RegExp`, `Error`, `Map` and `Set` are compared by content, and `NaN` equals `NaN`. Functions, symbols, promises, `WeakMap` and `WeakSet` are equal only to themselves. If the values are equal, it returns `true`; otherwise, it returns `false`.
 
 **Example**
 
@@ -363,6 +387,15 @@ isEqual([1, 2, 3], [1, 2, 3]); //=> true
 
 ```js
 isEqual({ a: { b: 1 } }, { a: { b: 1 } }); //=> true
+```
+
+```js
+isEqual(NaN, NaN); //=> true
+isEqual(new Date(0), new Date(0)); //=> true
+isEqual(new Set([1, 2]), new Set([1, 2])); //=> true
+const fn = () => 1;
+isEqual(fn, fn); //=> true
+isEqual(fn, () => 1); //=> false
 ```
 
 ```js
@@ -601,7 +634,7 @@ isIterable(new WeakMap()); //=> false
 
 ### `isKey`
 
-checks whether the specified value is a key belonging to the given source. If the value is a key of the source, it returns `true`; otherwise, it returns `false`.
+Checks whether the specified value is an own key of the given plain object. If it is, it returns `true`; otherwise, it returns `false`.
 
 **Example**
 
@@ -610,6 +643,10 @@ isKey('fullname', {
   name: 'Messi',
   fullname: 'Lionel Andrés Messi Cuccittini',
 }); //=> true
+```
+
+```js
+isKey('toString', {}); //=> false
 ```
 
 ---
@@ -640,16 +677,16 @@ isNaN(0 / 0); //=> true
 
 ```js
 isNaN(true); //=> false
-isNaN(null); //=> true
+isNaN(null); //=> false
 isNaN(37); //=> false
 isNaN('37'); //=> false
 isNaN('37.37'); //=> false
-isNaN(''); //=> true
-isNaN(' '); //=> true
+isNaN(''); //=> false
+isNaN(' '); //=> false
 ```
 
 ```js
-// Bunlar global isNaN() ile doğru olurdu.
+// These would be true with the global isNaN().
 isNaN('NaN'); //=> false
 isNaN(undefined); //=> false
 isNaN({}); //=> false
@@ -758,13 +795,13 @@ isNumber(''); //=> false
 isNumber(NaN); //=> true
 ```
 
-> For example, returns `true` for `10`, `'10'`, and `new Date().getTime()`; `false` for other cases.
+> For example, returns `true` for `10`, `new Date().getTime()` and `NaN` (its type is `number`); `false` for `'10'` and other cases.
 
 ---
 
 ### `isObject`
 
-Checks whether the specified value is a real object. If the value is a real object, it returns `true`; otherwise, it returns `false`.
+Checks whether the specified value is a plain object: one written as a literal, parsed from JSON, or made with `Object.create` (including `Object.create(null)`). An own key named `constructor` does not change the result. Arrays, class instances and built-ins such as `Date` or `Map` are not plain objects. If the value is a plain object, it returns `true`; otherwise, it returns `false`.
 
 **Example**
 
@@ -780,7 +817,13 @@ isObject([1, 2, 3]); //=> false
 isObject(null); //=> false
 ```
 
-> For example, returns `true` for `{ number: 15}`, and `false` for `[1, 2, 3]` and `null`. Note that in JavaScript, data types like `null` and `Array` are often considered objects. If you want to specifically check for real objects, you can use the `isObjects` function.
+```js
+isObject(Object.create(null)); //=> true
+isObject({ constructor: 'Pascal' }); //=> true
+isObject(new Date()); //=> false
+```
+
+> For example, returns `true` for `{ number: 15}`, and `false` for `[1, 2, 3]` and `null`. Note that in JavaScript, data types like `null` and `Array` are often considered objects. If you want this broader JavaScript check, you can use the `isObjects` function.
 
 ---
 
@@ -820,7 +863,11 @@ isOdd(6); //=> false
 isOdd(5); //=> true
 ```
 
-> In the above example, the `isOdd` function checks if the remainder of the parameter divided by 2 is not 0. If the remainder is not 0, the function returns `true`; otherwise, it returns `false`.
+```js
+isOdd(-3); //=> true
+```
+
+> In the above example, the `isOdd` function checks if the remainder of the parameter divided by 2 is 1 or -1. If it is, the function returns `true`; otherwise, it returns `false`.
 
 ---
 

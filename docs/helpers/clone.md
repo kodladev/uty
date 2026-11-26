@@ -10,7 +10,18 @@ import { clone } from 'uty';
 
 ## Mutation
 
-In JavaScript, functions that mutate original collections (such as `pop`, `reverse`, and `splice`) directly change the content of the collections. These functions can add, remove, or modify elements within collections. Therefore, if you want to preserve the previous states of collections, it is recommended to make copies of them before using these functions.
+Eight functions change the collection they are given, like the JavaScript methods they are named after:
+
+- `pop`
+- `prepend`
+- `push`
+- `remove`
+- `reverse`
+- `shift`
+- `sort`
+- `splice`
+
+Every other function leaves its input untouched and returns a new value. To keep the original collection when you use one of these eight, pass a copy made with `clone`.
 
 Example without using the `clone` function:
 

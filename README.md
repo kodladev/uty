@@ -7,7 +7,7 @@
 
 <p align="center">
   <br/>
-  This utility package provides helper functions for JavaScript tasks.
+  JavaScript helpers that work the same with plain data and Promises, on arrays and objects alike.
   <br/><br/>
 </p>
 
@@ -24,6 +24,30 @@
 ```shell
 npm i uty
 ```
+
+## How it behaves
+
+```js
+import { pipe } from 'uty';
+import { filter, map } from 'uty/collect';
+import { sum } from 'uty/math';
+
+const total = pipe(
+  filter(n => n > 1),
+  map(n => n * 2),
+  sum
+);
+
+total([1, 2, 3]); //=> 10
+total({ a: 1, b: 2, c: 3 }); //=> 10
+await total(Promise.resolve([1, 2, 3])); //=> 10
+```
+
+- **Data comes last.** Leave it out and you get a function that waits for it, ready for `pipe`.
+- **Arrays and objects are both collections.** `map`, `filter` and the rest take either and keep its shape.
+- **Promises pass through.** Give a function or a `pipe` a Promise and the result is a Promise.
+- **Bad data throws.** Data that cannot be processed, such as `undefined`, raises a `TypeError` that names the function.
+- **Eight functions change their input**, like the JavaScript methods they are named after: `pop`, `prepend`, `push`, `remove`, `reverse`, `shift`, `sort`, `splice`. Everything else returns a new value; [`clone`](https://github.com/kodladev/uty/blob/main/docs/helpers/clone.md) keeps the original when you need it.
 
 ## Overview
 
@@ -84,6 +108,8 @@ import { ucfirst, ucwords } from 'uty/string';
 ucfirst('uty is simple'); //=> Uty is simple
 ucwords('uty is simple'); //=> Uty Is Simple
 ```
+
+[`more 'string' examples`](https://github.com/kodladev/uty/blob/main/docs/libraries/string-tools.md)
 
 ### 🔹 Data Transformation
 
@@ -162,6 +188,14 @@ function isArray<T>(value: T): value is Include<T, unknown[] | Readonly<unknown[
 ## Documentation
 
 Visit our [documentation][DOCUMENTATION] for detailed guides and references.
+
+## Benchmark
+
+Every function is measured next to the plain JavaScript that does the same job:
+
+```shell
+npm run bench
+```
 
 ---
 
