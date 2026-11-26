@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     include: ['test/**/*.test.js'],
     benchmark: {
-      include: ['benchmark/**/*.bench.js'],
+      include: ['bench/**/*.bench.js'],
     },
   },
 });

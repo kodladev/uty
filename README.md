@@ -25,7 +25,7 @@
 npm i uty
 ```
 
-## How it behaves
+## Usage
 
 ```js
 import { pipe } from 'uty';
@@ -46,8 +46,6 @@ await total(Promise.resolve([1, 2, 3])); //=> 10
 - **Data comes last.** Leave it out and you get a function that waits for it.
 - **Arrays and objects alike.** `map`, `filter` and the rest take either and keep its shape.
 - **Promises pass through.** Give it a Promise and you get a Promise back.
-
-Two rules to know: data that cannot be processed [throws a `TypeError`](https://github.com/kodladev/uty/blob/main/docs/guides/functional-usage.md), and only [eight functions change their input](https://github.com/kodladev/uty/blob/main/docs/helpers/clone.md).
 
 ## Overview
 
@@ -212,6 +210,19 @@ All notable changes to this project will be documented in the [changelog][CHANGE
 [MIT][LICENSE]
 
 </details>
+
+<br/>
+
+<div align="center">
+  <a href="https://kodla.net">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/kodladev/uty/refs/heads/main/.github/assets/kodla-dark.svg">
+      <img alt="Kodla" src="https://raw.githubusercontent.com/kodladev/uty/refs/heads/main/.github/assets/kodla.svg" width="110"/>
+    </picture>
+  </a>
+  <br/>
+  <sub>uty is part of Kodla's open source tools.</sub>
+</div>
 
 [TEST]: https://github.com/kodladev/uty/actions/workflows/test.yaml
 [PACKAGE]: https://www.npmjs.com/package/uty

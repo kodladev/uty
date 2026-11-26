@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- The `benchmark` folder is now `bench`, like the `npm run bench` script that runs it
+
 ## [0.3.0] - 2026-11-26
 
 ### Added
