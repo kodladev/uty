@@ -63,6 +63,7 @@ All notable changes to this project will be documented in this file.
 
   - Supports strings, numbers, arrays, and objects.
   - Filters out falsy values.
+
   </details>
 
 ### Changed

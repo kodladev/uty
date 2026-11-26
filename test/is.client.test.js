@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, test } from 'vitest';
 import { isClient, isLocalStorage } from '../src/is.js';
 

@@ -28,7 +28,7 @@ async function types() {
       [`${pkg.name}/math`]: `${dir}/src/math.js`,
       [`${pkg.name}/string`]: `${dir}/src/string.js`,
       [`${pkg.name}/to`]: `${dir}/src/to.js`,
-      [`${pkg.name}/type`]: `${dir}/src/type.ts`,
+      [`${pkg.name}/type`]: `${dir}/src/type.js`,
     },
   });
 }

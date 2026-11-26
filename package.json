@@ -34,40 +34,40 @@
   "type": "module",
   "exports": {
     ".": {
-      "default": "./src/index.js",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/index.js"
     },
     "./collect": {
-      "default": "./src/collect.js",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/collect.js"
     },
     "./define": {
-      "default": "./src/define.js",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/define.js"
     },
     "./event": {
-      "default": "./src/event.js",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/event.js"
     },
     "./is": {
-      "default": "./src/is.js",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/is.js"
     },
     "./math": {
-      "default": "./src/math.js",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/math.js"
     },
     "./string": {
-      "default": "./src/string.js",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/string.js"
     },
     "./to": {
-      "default": "./src/to.js",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/to.js"
     },
     "./type": {
-      "default": "./src/type.ts",
-      "types": "./type/index.d.ts"
+      "types": "./type/index.d.ts",
+      "default": "./src/type.js"
     }
   },
   "main": "./src/index.js",
@@ -86,17 +86,17 @@
     "test": "vitest"
   },
   "devDependencies": {
-    "@eslint/js": "9.15.0",
-    "dts-buddy": "0.5.3",
-    "eslint": "9.15.0",
-    "eslint-config-prettier": "9.1.0",
-    "globals": "15.12.0",
+    "@eslint/js": "^10.0.1",
+    "dts-buddy": "^0.8.3",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.11.0",
     "jsdom": "25.0.1",
-    "prettier": "3.3.3",
-    "prettier-plugin-organize-imports": "4.1.0",
-    "prettier-plugin-packagejson": "2.5.5",
-    "rimraf": "6.0.1",
-    "vitest": "2.1.9"
+    "prettier": "^3.9.6",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "prettier-plugin-packagejson": "^3.0.2",
+    "rimraf": "^6.1.3",
+    "vitest": "^3.2.7"
   },
   "engines": {
     "node": ">=18"
