@@ -1,7 +1,7 @@
 {
   "name": "uty",
   "version": "0.3.0",
-  "description": "JavaScript helpers that work the same with plain data and Promises, on arrays and objects alike",
+  "description": "JS helpers where the same pipe works on arrays, objects and Promises",
   "keywords": [
     "js",
     "javascript",

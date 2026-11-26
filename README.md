@@ -7,7 +7,7 @@
 
 <p align="center">
   <br/>
-  JavaScript helpers that work the same with plain data and Promises, on arrays and objects alike.
+  JS helpers where the same pipe works on arrays, objects and Promises.
   <br/><br/>
 </p>
 
@@ -43,11 +43,11 @@ total({ a: 1, b: 2, c: 3 }); //=> 10
 await total(Promise.resolve([1, 2, 3])); //=> 10
 ```
 
-- **Data comes last.** Leave it out and you get a function that waits for it, ready for `pipe`.
-- **Arrays and objects are both collections.** `map`, `filter` and the rest take either and keep its shape.
-- **Promises pass through.** Give a function or a `pipe` a Promise and the result is a Promise.
-- **Bad data throws.** Data that cannot be processed, such as `undefined`, raises a `TypeError` that names the function.
-- **Eight functions change their input**, like the JavaScript methods they are named after: `pop`, `prepend`, `push`, `remove`, `reverse`, `shift`, `sort`, `splice`. Everything else returns a new value; [`clone`](https://github.com/kodladev/uty/blob/main/docs/helpers/clone.md) keeps the original when you need it.
+- **Data comes last.** Leave it out and you get a function that waits for it.
+- **Arrays and objects alike.** `map`, `filter` and the rest take either and keep its shape.
+- **Promises pass through.** Give it a Promise and you get a Promise back.
+
+Two rules to know: data that cannot be processed [throws a `TypeError`](https://github.com/kodladev/uty/blob/main/docs/guides/functional-usage.md), and only [eight functions change their input](https://github.com/kodladev/uty/blob/main/docs/helpers/clone.md).
 
 ## Overview
 
