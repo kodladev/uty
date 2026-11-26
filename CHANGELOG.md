@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-26
+
+### Changed
+
+- Releases are published from GitHub Actions through npm trusted publishing; the library code is unchanged
+
 ## [0.2.2] - 2026-11-26
 
 ### Changed
@@ -112,7 +118,8 @@ All notable changes to this project will be documented in this file.
 - Functions for converting collections to various data types
 - Customizable event emitter with listener management functions
 
-[unreleased]: https://github.com/kodladev/uty/compare/v0.2.2...HEAD
+[unreleased]: https://github.com/kodladev/uty/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/kodladev/uty/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/kodladev/uty/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/kodladev/uty/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/kodladev/uty/compare/v0.1.0...v0.2.0
