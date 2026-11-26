@@ -5,6 +5,8 @@
   --------------------------------------------------------------------------------------------------
 */
 
+import { isArray, isNull } from './is.js';
+
 /**
  * Throws a `TypeError` that names the function and the kind of data it received.
  *
@@ -17,6 +19,6 @@
  * @returns {never}
  */
 export function fail(name, value) {
-  const type = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+  const type = isNull(value) ? 'null' : isArray(value) ? 'array' : typeof value;
   throw new TypeError(`uty: ${name} cannot work with ${type}`);
 }

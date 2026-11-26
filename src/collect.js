@@ -24,6 +24,7 @@ import {
   isEmpty,
   isEqual,
   isFunction,
+  isInteger,
   isNil,
   isNumber,
   isObject,
@@ -871,7 +872,7 @@ export function remove(keys, collect) {
     const indexes = [...new Set(isArray(keys) ? keys : [keys])].sort((a, b) => b - a);
     for (let i = 0; i < indexes.length; i++) {
       const index = Number(indexes[i]);
-      if (Number.isInteger(index) && index >= 0 && index < collect.length) collect.splice(index, 1);
+      if (isInteger(index) && index >= 0 && index < collect.length) collect.splice(index, 1);
     }
     return collect;
   }

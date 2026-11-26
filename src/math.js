@@ -13,6 +13,7 @@ import {
   isCollect,
   isDivisible,
   isFunction,
+  isInteger,
   isNumber,
   isObject,
   isPromise,
@@ -126,5 +127,5 @@ export function sum(key, collect) {
   }
 
   // Whole numbers are exact; fractions are rounded to hide floating point noise (0.1 + 0.2)
-  return Number.isInteger(total) ? total : parseFloat(total.toPrecision(12));
+  return isInteger(total) ? total : parseFloat(total.toPrecision(12));
 }
